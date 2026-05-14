@@ -7,10 +7,11 @@ const { roles, activeRole, setRole } = useIdentity();
 <template>
   <div class="page">
     <header class="hero">
-      <p class="eyebrow">身份</p>
-      <h1>切换今日概率</h1>
+      <p class="eyebrow">身份设定</p>
+      <h1>我是谁？</h1>
       <p class="lead">
-        影响「今日鹿么」里随机到「鹿」的概率。代码内用概率数值表示，界面仍使用「鹿」这一中文代称。
+        选择你的身份，影响「今日鹿么」里随机到「鹿」的概率。<br>
+        当前身份：<strong class="active-label">{{ activeRole.label }} {{ activeRole.emoji }}</strong>
       </p>
     </header>
 
@@ -24,32 +25,56 @@ const { roles, activeRole, setRole } = useIdentity();
         role="listitem"
         @click="setRole(role.id)"
       >
-        <div class="role-head">
-          <span class="role-name">{{ role.label }}</span>
-          <span class="role-pill">鹿概率 {{ Math.round(role.luProbability * 100) }}%</span>
+        <div class="role-emoji" aria-hidden="true">{{ role.emoji }}</div>
+        <div class="role-body">
+          <div class="role-head">
+            <span class="role-name">{{ role.label }}</span>
+            <span class="role-pill" :class="{ 'pill-active': activeRole.id === role.id }">
+              鹿概率 {{ Math.round(role.luProbability * 100) }}%
+            </span>
+          </div>
+          <p class="role-desc">{{ role.description }}</p>
+          <p class="role-flavor">{{ role.flavor }}</p>
         </div>
-        <p class="role-desc">{{ role.description }}</p>
+        <div v-if="activeRole.id === role.id" class="check-mark" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M6.5 10.5l2.5 2.5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
       </button>
     </section>
+
+    <div class="impact-note">
+      <svg class="note-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10 9v5M10 7v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <p>身份设定仅影响「今日鹿么」的随机概率，不会修改已有的历史记录。随时可以切换。</p>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .page {
   min-height: 100%;
-  padding: 20px 16px 96px;
+  padding: 16px 14px 100px;
   max-width: 560px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .hero h1 {
-  margin: 6px 0 10px;
-  font-size: 24px;
+  margin: 4px 0 8px;
+  font-size: 26px;
+  font-weight: 800;
 }
 
 .eyebrow {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -62,9 +87,14 @@ const { roles, activeRole, setRole } = useIdentity();
   font-size: 14px;
 }
 
+.active-label {
+  color: var(--accent-b);
+  font-weight: 700;
+}
+
 .list {
-  margin-top: 16px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
@@ -72,14 +102,19 @@ const { roles, activeRole, setRole } = useIdentity();
   width: 100%;
   text-align: left;
   border-radius: var(--radius-lg);
-  padding: 14px 14px;
+  padding: 14px;
   background: var(--card);
   border: 1px solid var(--card-border);
   color: var(--text);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.05s ease;
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    transform 0.08s ease;
+  position: relative;
 }
 
 .role:active {
@@ -87,33 +122,103 @@ const { roles, activeRole, setRole } = useIdentity();
 }
 
 .role.active {
-  border-color: rgba(56, 189, 248, 0.45);
-  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.18) inset;
+  border-color: rgba(56, 189, 248, 0.5);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.07), rgba(34, 197, 94, 0.04));
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.18) inset,
+    0 8px 24px rgba(56, 189, 248, 0.08);
+}
+
+.role-emoji {
+  font-size: 36px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.role-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .role-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  margin-bottom: 5px;
 }
 
 .role-name {
+  font-size: 16px;
   font-weight: 700;
 }
 
 .role-pill {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   border: 1px solid var(--card-border);
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.role-pill.pill-active {
+  color: var(--accent-b);
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.1);
 }
 
 .role-desc {
-  margin: 8px 0 0;
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.role-flavor {
+  margin: 0;
+  font-size: 12px;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
+}
+
+.check-mark {
+  width: 20px;
+  height: 20px;
+  color: var(--accent-b);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.check-mark svg {
+  width: 100%;
+  height: 100%;
+}
+
+.impact-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  padding: 12px 14px;
+}
+
+.note-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent-b);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.impact-note p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
 }
 </style>

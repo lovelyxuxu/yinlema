@@ -25,6 +25,7 @@ serve/
 │   ├── deps.py             # FastAPI 依赖注入（鉴权）
 │   └── main.py             # 应用入口
 ├── doc/                    # 设计文档
+├── scripts/                # 数据库脚本（初始化测试数据等）
 ├── requirements.txt
 ├── .env.example
 └── README.md
@@ -61,6 +62,17 @@ uvicorn app.main:app --reload --port 8000
 - API 文档（Swagger）：http://localhost:8000/docs
 - API 文档（ReDoc）：http://localhost:8000/redoc
 - 健康检查：http://localhost:8000/
+
+### 5. 数据库脚本（可选）
+
+在 **`scripts/`** 目录提供 MongoDB 初始化脚本。
+
+初始化测试账号 **`luwang` / `88888888`**，并写入约 **90 天**随机分布的历史鹿记录（重复执行会先删掉同名旧账号及其记录再重建）：
+
+```bash
+cd serve
+python scripts/init_test_user.py
+```
 
 ## API 概览
 

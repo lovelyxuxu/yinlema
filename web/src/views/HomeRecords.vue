@@ -1,18 +1,42 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRecords, countByDay, countByWeek, countByMonth } from "../stores/records";
+import { useAuth } from "../stores/auth";
+import { useRouter } from "vue-router";
 
-const { records, addRecord, removeRecord, streakDays, todayCount, recentFrequency } = useRecords();
+const { records, addRecord, removeRecord, fetchRecords, loading, streakDays, todayCount, recentFrequency } = useRecords();
+const { logout } = useAuth();
+const router = useRouter();
 
 type Tab = "day" | "week" | "month";
 const activeTab = ref<Tab>("day");
 
 const justRecorded = ref(false);
+const addingRecord = ref(false);
 
-function handleAddRecord() {
-  addRecord();
-  justRecorded.value = true;
-  setTimeout(() => (justRecorded.value = false), 2000);
+onMounted(() => {
+  fetchRecords().catch(() => {});
+});
+
+async function handleAddRecord() {
+  if (addingRecord.value) return;
+  addingRecord.value = true;
+  try {
+    await addRecord();
+    justRecorded.value = true;
+    setTimeout(() => (justRecorded.value = false), 2000);
+  } finally {
+    addingRecord.value = false;
+  }
+}
+
+async function handleRemoveRecord(id: string) {
+  await removeRecord(id);
+}
+
+function handleLogout() {
+  logout();
+  router.push("/auth");
 }
 
 const streakBanner = computed(() => {
@@ -76,6 +100,17 @@ function formatTime(ts: number): string {
 <template>
   <div class="page">
 
+    <!-- 顶栏：标题 + 退出 -->
+    <div class="topbar">
+      <span class="topbar-title">鹿了么</span>
+      <button type="button" class="logout-btn" @click="handleLogout">退出</button>
+    </div>
+
+    <!-- 加载占位 -->
+    <div v-if="loading" class="loading-hint">
+      <span class="loading-dot" /><span class="loading-dot" /><span class="loading-dot" />
+    </div>
+
     <!-- 顶部 streak 横幅 -->
     <div class="streak-banner" :style="{ '--accent-color': streakBanner.color }">
       <div class="streak-inner">
@@ -104,9 +139,10 @@ function formatTime(ts: number): string {
           type="button"
           class="record-btn"
           :class="{ recorded: justRecorded }"
+          :disabled="addingRecord"
           @click="handleAddRecord"
         >
-          {{ justRecorded ? "✓ 已记录" : "今天鹿了" }}
+          {{ justRecorded ? "✓ 已记录" : addingRecord ? "记录中…" : "今天鹿了" }}
         </button>
       </div>
     </div>
@@ -158,7 +194,7 @@ function formatTime(ts: number): string {
         >
           <span class="record-dot" />
           <span class="record-time">{{ formatTime(rec.timestamp) }}</span>
-          <button type="button" class="del-btn" @click="removeRecord(rec.id)" aria-label="删除">✕</button>
+          <button type="button" class="del-btn" @click="handleRemoveRecord(rec.id)" aria-label="删除">✕</button>
         </li>
       </ul>
     </div>
@@ -175,6 +211,65 @@ function formatTime(ts: number): string {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* ── Topbar ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 4px;
+}
+
+.topbar-title {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.logout-btn {
+  background: none;
+  border: 1px solid var(--card-border);
+  color: var(--muted);
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.logout-btn:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Loading ── */
+.loading-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px 0 8px;
+}
+
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-b);
+  opacity: 0.7;
+  animation: dot-bounce 1s ease-in-out infinite;
+}
+
+.loading-dot:nth-child(2) { animation-delay: 0.15s; }
+.loading-dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-8px); opacity: 1; }
 }
 
 /* ── Streak Banner ── */

@@ -1,5 +1,21 @@
-node_modules
-dist
-.DS_Store
-*.local
-*.tsbuildinfo
+web/node_modules
+web/dist
+web/.DS_Store
+web/*.local
+web/*.tsbuildinfo
+
+# serve（Python / FastAPI / MongoDB 本地配置）
+serve/.env
+serve/.venv/
+serve/venv/
+serve/**/__pycache__/
+serve/**/*.py[cod]
+serve/.pytest_cache/
+serve/.mypy_cache/
+serve/.ruff_cache/
+serve/htmlcov/
+serve/.coverage*
+serve/*.egg-info/
+serve/dist/
+serve/build/
+serve/.eggs/

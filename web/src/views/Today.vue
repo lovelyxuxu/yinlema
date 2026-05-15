@@ -95,10 +95,17 @@ function roll() {
   }, 600);
 }
 
-function syncToRecord() {
-  if (verdict.value !== "lu" || synced.value) return;
-  addRecord();
-  synced.value = true;
+const syncing = ref(false);
+
+async function syncToRecord() {
+  if (verdict.value !== "lu" || synced.value || syncing.value) return;
+  syncing.value = true;
+  try {
+    await addRecord();
+    synced.value = true;
+  } finally {
+    syncing.value = false;
+  }
 }
 
 function clearVerdict() {
@@ -152,9 +159,10 @@ function clearVerdict() {
               v-if="!synced"
               type="button"
               class="sync-btn"
+              :disabled="syncing"
               @click="syncToRecord"
             >
-              记录到鹿了么
+              {{ syncing ? "记录中…" : "记录到鹿了么" }}
             </button>
             <span v-else class="synced-label">✓ 已记录到鹿了么</span>
           </div>

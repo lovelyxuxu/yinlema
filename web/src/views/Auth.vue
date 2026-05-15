@@ -1,0 +1,379 @@
+<script setup lang="ts">
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useAuth } from "../stores/auth";
+import { ApiError } from "../api/client";
+
+type Mode = "login" | "register";
+
+const router = useRouter();
+const { login, register } = useAuth();
+
+const mode = ref<Mode>("login");
+const username = ref("");
+const password = ref("");
+const confirmPassword = ref("");
+const errorMsg = ref("");
+const loading = ref(false);
+
+function switchMode(m: Mode) {
+  mode.value = m;
+  errorMsg.value = "";
+  password.value = "";
+  confirmPassword.value = "";
+}
+
+async function submit() {
+  errorMsg.value = "";
+
+  if (!username.value.trim() || !password.value) {
+    errorMsg.value = "请填写用户名和密码";
+    return;
+  }
+
+  if (mode.value === "register") {
+    if (username.value.trim().length < 3) {
+      errorMsg.value = "用户名至少 3 个字符";
+      return;
+    }
+    if (password.value.length < 6) {
+      errorMsg.value = "密码至少 6 位";
+      return;
+    }
+    if (password.value !== confirmPassword.value) {
+      errorMsg.value = "两次密码不一致";
+      return;
+    }
+  }
+
+  loading.value = true;
+  try {
+    if (mode.value === "login") {
+      await login(username.value.trim(), password.value);
+    } else {
+      await register(username.value.trim(), password.value);
+    }
+    router.replace("/");
+  } catch (e) {
+    if (e instanceof ApiError) {
+      if (e.status === 401) errorMsg.value = "用户名或密码错误";
+      else if (e.status === 409) errorMsg.value = "用户名已被占用，换一个试试";
+      else if (e.status === 422) errorMsg.value = "用户名或密码格式不正确";
+      else errorMsg.value = e.detail || "请求失败，请稍后重试";
+    } else {
+      errorMsg.value = "网络异常，请检查连接后重试";
+    }
+  } finally {
+    loading.value = false;
+  }
+}
+</script>
+
+<template>
+  <div class="auth-page">
+    <div class="auth-card">
+      <!-- Logo / 标题 -->
+      <div class="brand">
+        <div class="brand-icon">🦌</div>
+        <h1 class="brand-name">鹿了么</h1>
+        <p class="brand-sub">男性健康自我管理工具</p>
+      </div>
+
+      <!-- 切换 Tab -->
+      <div class="tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          :class="{ active: mode === 'login' }"
+          @click="switchMode('login')"
+        >
+          登录
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          :class="{ active: mode === 'register' }"
+          @click="switchMode('register')"
+        >
+          注册
+        </button>
+      </div>
+
+      <!-- 表单 -->
+      <form class="form" @submit.prevent="submit">
+        <div class="field">
+          <label class="label" for="username">用户名</label>
+          <input
+            id="username"
+            v-model="username"
+            type="text"
+            class="input"
+            placeholder="3~20 位，字母/数字/中文"
+            autocomplete="username"
+            :disabled="loading"
+            maxlength="20"
+          />
+        </div>
+
+        <div class="field">
+          <label class="label" for="password">密码</label>
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            class="input"
+            placeholder="至少 6 位"
+            autocomplete="current-password"
+            :disabled="loading"
+            maxlength="64"
+          />
+        </div>
+
+        <transition name="slide-down">
+          <div v-if="mode === 'register'" class="field">
+            <label class="label" for="confirm">确认密码</label>
+            <input
+              id="confirm"
+              v-model="confirmPassword"
+              type="password"
+              class="input"
+              placeholder="再次输入密码"
+              autocomplete="new-password"
+              :disabled="loading"
+              maxlength="64"
+            />
+          </div>
+        </transition>
+
+        <!-- 错误提示 -->
+        <transition name="fade">
+          <p v-if="errorMsg" class="error-msg" role="alert">{{ errorMsg }}</p>
+        </transition>
+
+        <button type="submit" class="submit-btn" :disabled="loading">
+          <span v-if="loading" class="spinner" aria-hidden="true" />
+          {{ loading ? "请稍候…" : mode === "login" ? "登录" : "注册并登录" }}
+        </button>
+      </form>
+
+      <p class="footer-note">账号仅用于数据同步，无需手机或邮箱验证。</p>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.auth-page {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  border-radius: 22px;
+  padding: 28px 22px 22px;
+  background: linear-gradient(180deg, rgba(20, 28, 40, 0.97), rgba(12, 16, 24, 0.97));
+  border: 1px solid var(--card-border);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ── Brand ── */
+.brand {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.brand-icon {
+  font-size: 52px;
+  line-height: 1;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 0 18px rgba(34, 197, 94, 0.35));
+}
+
+.brand-name {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-sub {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  gap: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+
+.tab {
+  flex: 1;
+  padding: 9px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  transition: all 0.18s ease;
+}
+
+.tab.active {
+  background: rgba(56, 189, 248, 0.14);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Form ── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.input:focus {
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+}
+
+.input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: rgba(154, 163, 178, 0.5);
+}
+
+/* ── Error ── */
+.error-msg {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Submit ── */
+.submit-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  color: #04120a;
+  font-size: 15px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.2s, transform 0.1s;
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.2);
+  margin-top: 2px;
+}
+
+.submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.submit-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(4, 18, 10, 0.3);
+  border-top-color: rgba(4, 18, 10, 0.9);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Footer ── */
+.footer-note {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(154, 163, 178, 0.6);
+  line-height: 1.6;
+}
+
+/* ── Transitions ── */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.25s ease;
+  max-height: 80px;
+  overflow: hidden;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+  max-height: 0;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

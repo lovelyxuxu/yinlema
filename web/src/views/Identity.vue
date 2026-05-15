@@ -1,7 +1,19 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import { useIdentity } from "../stores/identity";
 
 const { roles, activeRole, setRole } = useIdentity();
+const settingRole = ref(false);
+
+async function handleSetRole(id: Parameters<typeof setRole>[0]) {
+  if (settingRole.value) return;
+  settingRole.value = true;
+  try {
+    await setRole(id);
+  } finally {
+    settingRole.value = false;
+  }
+}
 </script>
 
 <template>
@@ -23,7 +35,8 @@ const { roles, activeRole, setRole } = useIdentity();
         class="role"
         :class="{ active: activeRole.id === role.id }"
         role="listitem"
-        @click="setRole(role.id)"
+        :disabled="settingRole"
+        @click="handleSetRole(role.id)"
       >
         <div class="role-emoji" aria-hidden="true">{{ role.emoji }}</div>
         <div class="role-body">

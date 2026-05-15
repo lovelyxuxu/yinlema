@@ -1,4 +1,6 @@
 import { computed, ref } from "vue";
+import { apiFetch } from "../api/client";
+import { isLoggedIn } from "./auth";
 
 export type IdentityRoleId = "balanced" | "sigma" | "chaos";
 
@@ -46,8 +48,10 @@ const storedValid = stored && ROLES.some((r) => r.id === stored);
 
 const activeId = ref<IdentityRoleId>(storedValid ? stored! : "balanced");
 
-function persist() {
-  localStorage.setItem(STORAGE_KEY, activeId.value);
+/** 登录后用服务端角色初始化（不触发 API 同步） */
+export function initIdentityFromServer(role: IdentityRoleId): void {
+  activeId.value = role;
+  localStorage.setItem(STORAGE_KEY, role);
 }
 
 export function useIdentity() {
@@ -57,9 +61,20 @@ export function useIdentity() {
     () => ROLES.find((r) => r.id === activeId.value) ?? ROLES[0],
   );
 
-  function setRole(id: IdentityRoleId) {
+  async function setRole(id: IdentityRoleId): Promise<void> {
     activeId.value = id;
-    persist();
+    localStorage.setItem(STORAGE_KEY, id);
+
+    if (isLoggedIn.value) {
+      try {
+        await apiFetch("/users/me/identity", {
+          method: "PUT",
+          body: { identity_role: id },
+        });
+      } catch {
+        // 静默失败：本地已更新，下次登录时服务端会以本地为准
+      }
+    }
   }
 
   return { roles, activeRole, setRole };

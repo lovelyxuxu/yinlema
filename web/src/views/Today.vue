@@ -33,7 +33,6 @@ const verdictConfig = computed(() => {
   if (verdict.value === "lu") {
     return {
       label: "鹿",
-      icon: "🦌",
       color: "var(--danger)",
       glow: "rgba(248, 113, 113, 0.25)",
       gradFrom: "#f87171",
@@ -43,7 +42,6 @@ const verdictConfig = computed(() => {
   if (verdict.value === "not") {
     return {
       label: "不鹿",
-      icon: "🔱",
       color: "var(--accent-a)",
       glow: "rgba(34, 197, 94, 0.25)",
       gradFrom: "#22c55e",
@@ -117,17 +115,20 @@ function clearVerdict() {
 
 <template>
   <div class="page">
+    <header class="hero">
+      <h2>今日鹿么</h2>
+      <p class="lead">
+        当前身份：<strong class="active-label">{{ activeRole.label }}</strong>，
+        鹿的概率约为 <strong>{{ Math.round(activeRole.luProbability * 100) }}%</strong>。
+      </p>
+    </header>
+
     <div class="card">
       <!-- 顶部 badge -->
       <div class="badge">
         <span class="dot" aria-hidden="true" />
         <span>随机决定今天鹿不鹿</span>
       </div>
-      <h1 class="title">今日鹿么</h1>
-      <p class="desc">
-        当前身份：<strong>{{ activeRole.label }} {{ activeRole.emoji }}</strong>，
-        鹿的概率约为 <strong>{{ Math.round(activeRole.luProbability * 100) }}%</strong>。
-      </p>
 
       <!-- 结果展示区 -->
       <section
@@ -136,9 +137,6 @@ function clearVerdict() {
         aria-live="polite"
         :style="{ '--glow': verdictConfig.glow }"
       >
-        <div class="panel-icon" :class="{ 'pop': !busy && verdict !== 'none' }">
-          {{ verdictConfig.icon }}
-        </div>
         <p class="panel-kicker">today's verdict</p>
         <p
           class="panel-title"
@@ -200,14 +198,34 @@ function clearVerdict() {
 .page {
   min-height: 100%;
   padding: 16px 14px 100px;
+  max-width: 560px;
+  margin: 0 auto;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lead {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.lead strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.lead .active-label {
+  color: var(--accent-b);
 }
 
 .card {
-  width: min(560px, 100%);
+  width: 100%;
   border-radius: 22px;
-  padding: 18px 16px 16px;
+  margin-top: 10px;
+  padding: 12px 18px 18px 18px;
   background: linear-gradient(180deg, rgba(20, 28, 40, 0.95), rgba(12, 16, 24, 0.95));
   border: 1px solid var(--card-border);
   box-shadow:
@@ -220,6 +238,7 @@ function clearVerdict() {
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
+  margin-bottom: 10px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -233,25 +252,6 @@ function clearVerdict() {
   border-radius: 999px;
   background: radial-gradient(circle at 30% 30%, #e0f2fe, #38bdf8);
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.55);
-}
-
-.title {
-  margin: 12px 0 6px;
-  font-size: 28px;
-  line-height: 1.15;
-  letter-spacing: 0.02em;
-}
-
-.desc {
-  margin: 0 0 14px;
-  color: rgba(226, 232, 240, 0.86);
-  line-height: 1.65;
-  font-size: 14px;
-}
-
-.desc strong {
-  color: var(--text);
-  font-weight: 700;
 }
 
 /* ── Panel ── */

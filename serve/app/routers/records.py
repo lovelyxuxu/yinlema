@@ -10,6 +10,7 @@ from ..models.record import RecordInDB
 from ..models.user import UserInDB
 from ..schemas.record import (
     CreateRecordRequest,
+    UpdateRecordRequest,
     RecordResponse,
     StatsResponse,
     DayStatItem,
@@ -30,7 +31,7 @@ def _date_str(d: datetime) -> str:
     summary="获取鹿记录列表",
 )
 async def list_records(
-    limit: int = Query(default=50, ge=1, le=200, description="每次返回最多条数"),
+    limit: int = Query(default=50, ge=1, le=1000, description="每次返回最多条数"),
     offset: int = Query(default=0, ge=0, description="跳过条数（分页用）"),
     current_user: UserInDB = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_db),
@@ -105,6 +106,37 @@ async def delete_record(
     )
     if result.deleted_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="记录不存在或无权删除")
+
+
+@router.patch(
+    "/{record_id}",
+    response_model=RecordResponse,
+    summary="更新记录备注",
+)
+async def update_record(
+    record_id: str,
+    body: UpdateRecordRequest,
+    current_user: UserInDB = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+) -> RecordResponse:
+    try:
+        oid = ObjectId(record_id)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="record_id 格式错误")
+
+    doc = await db["records"].find_one({"_id": oid, "user_id": current_user.id})
+    if doc is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="记录不存在或无权修改")
+
+    await db["records"].update_one({"_id": oid}, {"$set": {"note": body.note}})
+    return RecordResponse(
+        record_id=str(doc["_id"]),
+        user_id=doc["user_id"],
+        timestamp=doc["timestamp"],
+        date=doc["date"],
+        note=body.note,
+        created_at=doc["created_at"],
+    )
 
 
 @router.get(

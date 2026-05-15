@@ -8,6 +8,10 @@ class CreateRecordRequest(BaseModel):
     note: str = Field(default="", max_length=500, description="备注（可选）")
 
 
+class UpdateRecordRequest(BaseModel):
+    note: str = Field(..., max_length=500, description="备注内容")
+
+
 class RecordResponse(BaseModel):
     record_id: str
     user_id: str

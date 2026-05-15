@@ -6,7 +6,7 @@ const route = useRoute();
 const items = [
   { to: "/", label: "鹿了么", exact: true },
   { to: "/today", label: "今日鹿么" },
-  { to: "/identity", label: "身份" },
+  { to: "/identity", label: "我是谁" },
 ];
 
 function isActive(path: string, exact?: boolean) {

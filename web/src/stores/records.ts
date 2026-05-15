@@ -5,6 +5,7 @@ export interface LuRecord {
   id: string;
   timestamp: number; // ms since epoch
   date: string;      // YYYY-MM-DD
+  note: string;
 }
 
 interface ApiRecord {
@@ -21,6 +22,7 @@ function toLocal(r: ApiRecord): LuRecord {
     id: r.record_id,
     timestamp: new Date(r.timestamp).getTime(),
     date: r.date,
+    note: r.note,
   };
 }
 
@@ -41,7 +43,7 @@ async function fetchRecords(): Promise<void> {
   if (_fetched) return;
   loading.value = true;
   try {
-    const data = await apiFetch<ApiRecord[]>("/records?limit=200");
+    const data = await apiFetch<ApiRecord[]>("/records?limit=1000");
     records.value = data.map(toLocal);
     _fetched = true;
   } finally {
@@ -116,6 +118,18 @@ export function countByMonth(n = 6): { label: string; count: number }[] {
   return result;
 }
 
+/** 最近 n 个自然年（含本年），从早到晚排列 */
+export function countByYear(n = 6): { year: number; label: string; count: number }[] {
+  const result: { year: number; label: string; count: number }[] = [];
+  const currentYear = new Date().getFullYear();
+  for (let i = n - 1; i >= 0; i--) {
+    const y = currentYear - i;
+    const count = records.value.filter((r) => r.date.startsWith(`${y}-`)).length;
+    result.push({ year: y, label: `${y}年`, count });
+  }
+  return result;
+}
+
 export const recentFrequency = computed(() => {
   const days = countByDay(7);
   const total = days.reduce((s, d) => s + Math.min(d.count, 1), 0);
@@ -145,6 +159,14 @@ export function useRecords() {
     await removeRecord(latest.id);
   }
 
+  async function updateNote(id: string, note: string): Promise<void> {
+    await apiFetch<ApiRecord>(`/records/${id}`, {
+      method: "PATCH",
+      body: { note },
+    });
+    records.value = records.value.map((r) => (r.id === id ? { ...r, note } : r));
+  }
+
   const todayCount = computed(() => countOnDate(today()));
 
   return {
@@ -154,11 +176,13 @@ export function useRecords() {
     addRecord,
     removeRecord,
     removeLatest,
+    updateNote,
     streakDays,
     todayCount,
     recentFrequency,
     countByDay,
     countByWeek,
     countByMonth,
+    countByYear,
   };
 }

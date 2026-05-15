@@ -19,11 +19,10 @@ async function handleSetRole(id: Parameters<typeof setRole>[0]) {
 <template>
   <div class="page">
     <header class="hero">
-      <p class="eyebrow">身份设定</p>
-      <h1>我是谁？</h1>
+      <h2>身份设定</h2>
       <p class="lead">
         选择你的身份，影响「今日鹿么」里随机到「鹿」的概率。<br>
-        当前身份：<strong class="active-label">{{ activeRole.label }} {{ activeRole.emoji }}</strong>
+        当前身份：<strong class="active-label">{{ activeRole.label }}</strong>
       </p>
     </header>
 

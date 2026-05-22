@@ -18,13 +18,10 @@ async function handleSetRole(id: Parameters<typeof setRole>[0]) {
 
 <template>
   <div class="page">
-    <header class="hero">
-      <h2>身份设定</h2>
-      <p class="lead">
-        选择你的身份，影响「今日鹿么」里随机到「鹿」的概率。<br>
-        当前身份：<strong class="active-label">{{ activeRole.label }}</strong>
-      </p>
-    </header>
+    <p class="page-intro lead">
+      选择你的身份，影响「今日鹿么」里随机到「鹿」的概率。<br>
+      当前身份：<strong class="active-label">{{ activeRole.label }}</strong>
+    </p>
 
     <section class="list" role="list">
       <button
@@ -78,18 +75,8 @@ async function handleSetRole(id: Parameters<typeof setRole>[0]) {
   gap: 14px;
 }
 
-.hero h1 {
-  margin: 4px 0 8px;
-  font-size: 26px;
-  font-weight: 800;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+.page-intro {
+  margin: 0 0 4px;
 }
 
 .lead {
@@ -134,11 +121,8 @@ async function handleSetRole(id: Parameters<typeof setRole>[0]) {
 }
 
 .role.active {
-  border-color: rgba(56, 189, 248, 0.5);
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.07), rgba(34, 197, 94, 0.04));
-  box-shadow:
-    0 0 0 1px rgba(56, 189, 248, 0.18) inset,
-    0 8px 24px rgba(56, 189, 248, 0.08);
+  border-color: rgba(2, 132, 199, 0.45);
+  background: rgba(2, 132, 199, 0.06);
 }
 
 .role-emoji {
@@ -178,8 +162,8 @@ async function handleSetRole(id: Parameters<typeof setRole>[0]) {
 
 .role-pill.pill-active {
   color: var(--accent-b);
-  border-color: rgba(56, 189, 248, 0.35);
-  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(2, 132, 199, 0.32);
+  background: rgba(2, 132, 199, 0.08);
 }
 
 .role-desc {
@@ -214,8 +198,8 @@ async function handleSetRole(id: Parameters<typeof setRole>[0]) {
   align-items: flex-start;
   gap: 8px;
   border-radius: var(--radius-md);
-  background: rgba(56, 189, 248, 0.06);
-  border: 1px solid rgba(56, 189, 248, 0.14);
+  background: rgba(2, 132, 199, 0.06);
+  border: 1px solid rgba(2, 132, 199, 0.14);
   padding: 12px 14px;
 }
 

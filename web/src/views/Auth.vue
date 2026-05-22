@@ -1,10 +1,21 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useAuth } from "../stores/auth";
+import { useAuth, type UserRegionPayload } from "../stores/auth";
 import { ApiError } from "../api/client";
+import { regionData } from "element-china-area-data";
+import RegionPicker from "../components/RegionPicker.vue";
+import { toSixDigitAdcode } from "../utils/regionAdcode";
 
 type Mode = "login" | "register";
+
+interface AreaItem {
+  value: string;
+  label: string;
+  children?: AreaItem[];
+}
+
+const provinces = regionData as unknown as AreaItem[];
 
 const router = useRouter();
 const { login, register } = useAuth();
@@ -16,11 +27,33 @@ const confirmPassword = ref("");
 const errorMsg = ref("");
 const loading = ref(false);
 
+const provinceCode = ref("");
+const cityCode = ref("");
+const districtCode = ref("");
+
+function buildRegionPayload(): UserRegionPayload | null {
+  const pItem = provinces.find((x) => x.value === provinceCode.value);
+  const cItem = pItem?.children?.find((x) => x.value === cityCode.value);
+  const dItem = cItem?.children?.find((x) => x.value === districtCode.value);
+  if (!pItem || !cItem || !dItem) return null;
+  return {
+    province_code: toSixDigitAdcode(pItem.value),
+    city_code: toSixDigitAdcode(cItem.value),
+    district_code: toSixDigitAdcode(dItem.value),
+    province_name: pItem.label,
+    city_name: cItem.label,
+    district_name: dItem.label,
+  };
+}
+
 function switchMode(m: Mode) {
   mode.value = m;
   errorMsg.value = "";
   password.value = "";
   confirmPassword.value = "";
+  provinceCode.value = "";
+  cityCode.value = "";
+  districtCode.value = "";
 }
 
 async function submit() {
@@ -44,6 +77,11 @@ async function submit() {
       errorMsg.value = "两次密码不一致";
       return;
     }
+    const reg = buildRegionPayload();
+    if (!reg) {
+      errorMsg.value = "请选择完整的省·市·区";
+      return;
+    }
   }
 
   loading.value = true;
@@ -51,14 +89,18 @@ async function submit() {
     if (mode.value === "login") {
       await login(username.value.trim(), password.value);
     } else {
-      await register(username.value.trim(), password.value);
+      const reg = buildRegionPayload();
+      if (!reg) throw new Error("请选择省市区");
+      await register(username.value.trim(), password.value, reg);
     }
     router.replace("/");
   } catch (e) {
     if (e instanceof ApiError) {
       if (e.status === 401) errorMsg.value = "用户名或密码错误";
       else if (e.status === 409) errorMsg.value = "用户名已被占用，换一个试试";
-      else if (e.status === 422) errorMsg.value = "用户名或密码格式不正确";
+      else if (e.status === 422)
+        errorMsg.value =
+          e.detail?.length ? String(e.detail) : "信息格式有误，请检查用户名、密码与地区";
       else errorMsg.value = e.detail || "请求失败，请稍后重试";
     } else {
       errorMsg.value = "网络异常，请检查连接后重试";
@@ -74,7 +116,6 @@ async function submit() {
     <div class="auth-card">
       <!-- Logo / 标题 -->
       <div class="brand">
-        <div class="brand-icon">🦌</div>
         <h1 class="brand-name">鹿了么</h1>
         <p class="brand-sub">男性健康自我管理工具</p>
       </div>
@@ -102,30 +143,35 @@ async function submit() {
       </div>
 
       <!-- 表单 -->
-      <form class="form" @submit.prevent="submit">
+      <form class="form" autocomplete="off" @submit.prevent="submit">
         <div class="field">
-          <label class="label" for="username">用户名</label>
+          <label class="label" for="auth-username">用户名</label>
           <input
-            id="username"
+            id="auth-username"
+            name="lulemo-username"
             v-model="username"
             type="text"
             class="input"
             placeholder="3~20 位，字母/数字/中文"
-            autocomplete="username"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
             :disabled="loading"
             maxlength="20"
           />
         </div>
 
         <div class="field">
-          <label class="label" for="password">密码</label>
+          <label class="label" for="auth-password">密码</label>
           <input
-            id="password"
+            id="auth-password"
+            name="lulemo-password"
             v-model="password"
             type="password"
             class="input"
             placeholder="至少 6 位"
-            autocomplete="current-password"
+            autocomplete="off"
             :disabled="loading"
             maxlength="64"
           />
@@ -133,16 +179,29 @@ async function submit() {
 
         <transition name="slide-down">
           <div v-if="mode === 'register'" class="field">
-            <label class="label" for="confirm">确认密码</label>
+            <label class="label" for="auth-confirm">确认密码</label>
             <input
-              id="confirm"
+              id="auth-confirm"
+              name="lulemo-password-confirm"
               v-model="confirmPassword"
               type="password"
               class="input"
               placeholder="再次输入密码"
-              autocomplete="new-password"
+              autocomplete="off"
               :disabled="loading"
               maxlength="64"
+            />
+          </div>
+        </transition>
+
+        <transition name="slide-down">
+          <div v-if="mode === 'register'" class="region-block">
+            <p class="region-label">所在地区（必选）</p>
+            <RegionPicker
+              v-model:province-code="provinceCode"
+              v-model:city-code="cityCode"
+              v-model:district-code="districtCode"
+              :disabled="loading"
             />
           </div>
         </transition>
@@ -158,7 +217,7 @@ async function submit() {
         </button>
       </form>
 
-      <p class="footer-note">账号仅用于数据同步，无需手机或邮箱验证。</p>
+      <p class="footer-note">开启您自我管理之旅，点滴记录，从仪式感开始。</p>
     </div>
   </div>
 </template>
@@ -176,11 +235,9 @@ async function submit() {
   width: min(420px, 100%);
   border-radius: 22px;
   padding: 28px 22px 22px;
-  background: linear-gradient(180deg, rgba(20, 28, 40, 0.97), rgba(12, 16, 24, 0.97));
+  background: var(--card);
   border: 1px solid var(--card-border);
-  box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
 }
 
 /* ── Brand ── */
@@ -189,22 +246,12 @@ async function submit() {
   margin-bottom: 22px;
 }
 
-.brand-icon {
-  font-size: 52px;
-  line-height: 1;
-  margin-bottom: 6px;
-  filter: drop-shadow(0 0 18px rgba(34, 197, 94, 0.35));
-}
-
 .brand-name {
   margin: 0 0 4px;
   font-size: 26px;
   font-weight: 900;
   letter-spacing: 0.04em;
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--accent-a);
 }
 
 .brand-sub {
@@ -217,7 +264,7 @@ async function submit() {
 .tabs {
   display: flex;
   gap: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 20px;
@@ -236,9 +283,9 @@ async function submit() {
 }
 
 .tab.active {
-  background: rgba(56, 189, 248, 0.14);
+  background: rgba(2, 132, 199, 0.12);
   color: var(--text);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* ── Form ── */
@@ -266,7 +313,7 @@ async function submit() {
   padding: 11px 14px;
   border-radius: 12px;
   border: 1px solid var(--card-border);
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.04);
   color: var(--text);
   font-size: 15px;
   outline: none;
@@ -274,17 +321,29 @@ async function submit() {
 }
 
 .input:focus {
-  border-color: rgba(56, 189, 248, 0.5);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+  border-color: rgba(2, 132, 199, 0.5);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.10);
 }
 
+.region-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.region-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 .input:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
 .input::placeholder {
-  color: rgba(154, 163, 178, 0.5);
+  color: rgba(100, 116, 139, 0.55);
 }
 
 /* ── Error ── */
@@ -305,8 +364,8 @@ async function submit() {
   padding: 14px;
   border-radius: 14px;
   border: none;
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
-  color: #04120a;
+  background: var(--accent-a);
+  color: #fff;
   font-size: 15px;
   font-weight: 800;
   display: flex;
@@ -314,7 +373,6 @@ async function submit() {
   justify-content: center;
   gap: 8px;
   transition: opacity 0.2s, transform 0.1s;
-  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.2);
   margin-top: 2px;
 }
 
@@ -348,7 +406,8 @@ async function submit() {
   margin: 16px 0 0;
   text-align: center;
   font-size: 11px;
-  color: rgba(154, 163, 178, 0.6);
+  color: var(--muted);
+  opacity: 0.75;
   line-height: 1.6;
 }
 

@@ -6,11 +6,13 @@ const route = useRoute();
 const items = [
   { to: "/", label: "鹿了么", exact: true },
   { to: "/today", label: "今日鹿么" },
-  { to: "/identity", label: "我是谁" },
+  { to: "/identity", label: "选择身份" },
+  { to: "/social/rank", label: "社交" },
 ];
 
 function isActive(path: string, exact?: boolean) {
   if (exact) return route.path === path;
+  if (path.startsWith("/social")) return route.path.startsWith("/social");
   return route.path.startsWith(path);
 }
 </script>
@@ -39,10 +41,17 @@ function isActive(path: string, exact?: boolean) {
         <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor"/>
         <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
       </svg>
-      <!-- 身份：盾牌图标 -->
+      <!-- 身份：用户图标 -->
+      <svg v-else-if="item.to === '/identity'" class="nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M5 20c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <!-- 社交：气泡图标 -->
       <svg v-else class="nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M12 3L4 6.5V11c0 4.5 3.5 8.5 8 9.5 4.5-1 8-5 8-9.5V6.5L12 3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-        <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4 17.5V18a2 2 0 0 0 2 2h1.5v2l4-2H18a4 4 0 0 0 4-4V10a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v3.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <circle cx="9.5" cy="11.5" r="1.1" fill="currentColor"/>
+        <circle cx="13" cy="11.5" r="1.1" fill="currentColor"/>
+        <circle cx="16.5" cy="11.5" r="1.1" fill="currentColor"/>
       </svg>
       <span>{{ item.label }}</span>
     </RouterLink>
@@ -56,9 +65,9 @@ function isActive(path: string, exact?: boolean) {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   padding: 8px 8px calc(8px + var(--safe-bottom));
-  background: rgba(7, 10, 15, 0.88);
+  background: rgba(241, 245, 249, 0.90);
   backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   border-top: 1px solid var(--card-border);
@@ -94,7 +103,6 @@ function isActive(path: string, exact?: boolean) {
 
 .nav-item.active .nav-icon {
   color: var(--accent-b);
-  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.5));
   transform: translateY(-1px);
 }
 

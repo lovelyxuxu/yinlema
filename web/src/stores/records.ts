@@ -1,5 +1,6 @@
 import { computed, ref } from "vue";
 import { apiFetch } from "../api/client";
+import { useAuth } from "./auth";
 
 export interface LuRecord {
   id: string;
@@ -26,12 +27,25 @@ function toLocal(r: ApiRecord): LuRecord {
   };
 }
 
-function dateStr(d: Date): string {
-  return d.toISOString().slice(0, 10);
+const TZ_SHANGHAI = "Asia/Shanghai";
+
+function formatShanghaiDate(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ_SHANGHAI }).format(d);
 }
 
 function today(): string {
-  return dateStr(new Date());
+  return formatShanghaiDate(new Date());
+}
+
+function accountJoinDate(createdAt?: string | null): string {
+  if (!createdAt) return today();
+  return formatShanghaiDate(new Date(createdAt));
+}
+
+function prevLocalDay(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00+08:00`);
+  d.setDate(d.getDate() - 1);
+  return formatShanghaiDate(d);
 }
 
 /* ── 模块级单例状态 ── */
@@ -63,26 +77,12 @@ function countOnDate(date: string): number {
   return records.value.filter((r) => r.date === date).length;
 }
 
-export const streakDays = computed(() => {
-  const set = new Set(records.value.map((r) => r.date));
-  if (set.has(today())) return 0;
-  let count = 0;
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  while (!set.has(dateStr(d))) {
-    count++;
-    d.setDate(d.getDate() - 1);
-    if (count > 1095) break;
-  }
-  return count;
-});
-
 export function countByDay(n = 7): { date: string; count: number }[] {
   const result: { date: string; count: number }[] = [];
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const date = dateStr(d);
+    const date = formatShanghaiDate(d);
     result.push({ date, count: countOnDate(date) });
   }
   return result;
@@ -99,7 +99,7 @@ export function countByWeek(n = 6): { label: string; count: number }[] {
     for (let j = 0; j <= 6; j++) {
       const d = new Date(start);
       d.setDate(d.getDate() + j);
-      count += countOnDate(dateStr(d));
+      count += countOnDate(formatShanghaiDate(d));
     }
     result.push({ label: `${start.getMonth() + 1}/${start.getDate()}`, count });
   }
@@ -139,11 +139,37 @@ export const recentFrequency = computed(() => {
 /* ── useRecords ── */
 
 export function useRecords() {
+  const { user } = useAuth();
+
+  const streakDays = computed(() => {
+    const set = new Set(records.value.map((r) => r.date));
+    if (set.has(today())) return 0;
+    const joinDate = accountJoinDate(user.value?.created_at);
+    let count = 0;
+    let check = prevLocalDay(today());
+    while (check >= joinDate) {
+      if (set.has(check)) break;
+      count++;
+      check = prevLocalDay(check);
+    }
+    return count;
+  });
+
   async function addRecord(): Promise<void> {
     const now = new Date();
     const data = await apiFetch<ApiRecord>("/records", {
       method: "POST",
       body: { timestamp: now.toISOString(), note: "" },
+    });
+    records.value = [toLocal(data), ...records.value];
+  }
+
+  /** 为指定上海日历日新增一条鹿记录（补卡「鹿了」用） */
+  async function addRecordForDate(localDate: string): Promise<void> {
+    const timestamp = `${localDate}T12:00:00+08:00`;
+    const data = await apiFetch<ApiRecord>("/records", {
+      method: "POST",
+      body: { timestamp, note: "" },
     });
     records.value = [toLocal(data), ...records.value];
   }
@@ -174,6 +200,7 @@ export function useRecords() {
     loading,
     fetchRecords,
     addRecord,
+    addRecordForDate,
     removeRecord,
     removeLatest,
     updateNote,

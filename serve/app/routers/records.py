@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from ..core.database import get_db
+from ..core.dates_cn import datetime_to_local_date, parse_local_date, today_local_str
 from ..deps import get_current_user
 from ..models.record import RecordInDB
 from ..models.user import UserInDB
@@ -149,7 +150,8 @@ async def get_stats(
     current_user: UserInDB = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ) -> StatsResponse:
-    today_str = _date_str(datetime.now(timezone.utc))
+    today_str = today_local_str()
+    join_date = parse_local_date(datetime_to_local_date(current_user.created_at))
 
     # 拉取近 90 天的记录用于统计（覆盖所有聚合维度）
     since = datetime.now(timezone.utc) - timedelta(days=90)
@@ -164,11 +166,13 @@ async def get_stats(
     for d in docs:
         date_count[d["date"]] = date_count.get(d["date"], 0) + 1
 
-    # 连续未鹿天数（streak：从昨天往前算，直到遇到有记录的日期）
+    # 连续未鹿天数：从昨天往前数无记录日，不早于账号注册日（上海日历）
     streak = 0
     if today_str not in date_set:
-        check = datetime.now(timezone.utc) - timedelta(days=1)
-        while _date_str(check) not in date_set and streak <= 1095:
+        check = parse_local_date(today_str) - timedelta(days=1)
+        while check >= join_date:
+            if check.isoformat() in date_set:
+                break
             streak += 1
             check -= timedelta(days=1)
 

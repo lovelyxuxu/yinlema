@@ -1,10 +1,13 @@
 from pydantic import BaseModel, Field, field_validator
 import re
 
+from ..models.region import UserRegion
+
 
 class RegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=20, description="用户名，3-20位，只允许字母、数字、下划线")
     password: str = Field(..., min_length=6, max_length=64, description="密码，6-64位")
+    region: UserRegion = Field(..., description="注册必填省市区编码及展示名")
 
     @field_validator("username")
     @classmethod

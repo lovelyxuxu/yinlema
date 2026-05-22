@@ -33,6 +33,7 @@ async def register(
     user = UserInDB(
         username=body.username,
         password_hash=hash_password(body.password),
+        region=body.region,
     )
     result = await db["users"].insert_one(user.to_doc())
     user_id = str(result.inserted_id)
@@ -81,8 +82,10 @@ async def get_me(
     current_user: UserInDB = Depends(get_current_user),
 ) -> UserResponse:
     return UserResponse(
-        user_id=current_user.id,
+        user_id=current_user.id or "",
         username=current_user.username,
         identity_role=current_user.identity_role,
         created_at=current_user.created_at,
+        region=current_user.region,
+        plaza_display_name=current_user.plaza_display_name,
     )

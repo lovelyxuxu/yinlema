@@ -1,16 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRecords, countByDay, countByWeek, countByMonth, countByYear } from "../stores/records";
-import { useAuth } from "../stores/auth";
-import { useRouter } from "vue-router";
+import { checkInDaysMap, loadRecentCheckIns } from "../stores/checkIns";
+import TodayCheckIn from "../components/TodayCheckIn.vue";
 
 const {
-  records, addRecord, removeRecord, updateNote,
+  records, removeRecord, updateNote,
   fetchRecords, loading, streakDays, todayCount, recentFrequency,
 } = useRecords();
-const { logout } = useAuth();
-const router = useRouter();
-
 /* ── Tab ── */
 type Tab = "day" | "week" | "month" | "year";
 const activeTab = ref<Tab>("day");
@@ -26,33 +23,68 @@ function setChartTab(id: Tab) {
   activeTab.value = id;
 }
 
-/* ── 今日记录按钮 ── */
-const justRecorded = ref(false);
-const addingRecord = ref(false);
-
-onMounted(() => { fetchRecords().catch(() => {}); });
-
-async function handleAddRecord() {
-  if (addingRecord.value) return;
-  addingRecord.value = true;
-  try {
-    await addRecord();
-    justRecorded.value = true;
-    setTimeout(() => (justRecorded.value = false), 2000);
-  } finally {
-    addingRecord.value = false;
-  }
+function onDeerDone() {
+  fetchRecords().catch(() => {});
 }
 
-function handleLogout() {
-  logout();
-  router.push("/auth");
+function onBackfillDone() {
+  loadRecentCheckIns().catch(() => {});
+}
+
+/** 图表计数：有行为记录用条数；仅补卡「鹿了」且无记录时计 1 */
+function chartCountOnDate(date: string): number {
+  const recordCount = records.value.filter((r) => r.date === date).length;
+  if (recordCount > 0) return recordCount;
+  return checkInDaysMap.value[date] === "deer" ? 1 : 0;
+}
+
+function chartCountInRange(start: string, end: string): number {
+  let total = 0;
+  const d = new Date(`${start}T12:00:00`);
+  const endD = new Date(`${end}T12:00:00`);
+  while (d <= endD) {
+    total += chartCountOnDate(ds(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return total;
+}
+
+function chartCountInMonth(prefix: string): number {
+  const dates = new Set<string>();
+  for (const r of records.value) {
+    if (r.date.startsWith(prefix)) dates.add(r.date);
+  }
+  for (const [date, st] of Object.entries(checkInDaysMap.value)) {
+    if (date.startsWith(prefix) && st === "deer") dates.add(date);
+  }
+  let total = 0;
+  for (const date of dates) total += chartCountOnDate(date);
+  return total;
+}
+
+function chartCountInYear(year: number): number {
+  const prefix = `${year}-`;
+  const dates = new Set<string>();
+  for (const r of records.value) {
+    if (r.date.startsWith(prefix)) dates.add(r.date);
+  }
+  for (const [date, st] of Object.entries(checkInDaysMap.value)) {
+    if (date.startsWith(prefix) && st === "deer") dates.add(date);
+  }
+  let total = 0;
+  for (const date of dates) total += chartCountOnDate(date);
+  return total;
 }
 
 /* ── 统计横幅 ── */
 const streakBanner = computed(() => {
   const n = streakDays.value;
-  if (n === 0) return { title: "今天已经鹿了", sub: "今天好好照顾一下自己，给身体留点时间恢复。", color: "var(--danger)" };
+  if (n === 0 && todayCount.value > 0) {
+    return { title: "今天已经鹿了", sub: "今天好好照顾一下自己，给身体留点时间恢复。", color: "var(--danger)" };
+  }
+  if (n === 0) {
+    return { title: "0 天没鹿", sub: "今天还没有记录，从这一刻开始管理自己的节律吧。", color: "var(--accent-b)" };
+  }
   if (n < 3)  return { title: `${n} 天没鹿`, sub: "好的开始！每一天都是一次选择，继续。", color: "var(--accent-b)" };
   if (n < 7)  return { title: `${n} 天没鹿`, sub: "已经坚持好几天了，精力是不是更充沛了？", color: "var(--accent-b)" };
   if (n < 14) return { title: `整整 ${n} 天！`, sub: "一周以上，节律在慢慢建立。你比昨天更强。", color: "var(--accent-a)" };
@@ -87,11 +119,12 @@ const chartData = computed((): ChartBarItem[] => {
   if (activeTab.value === "day") {
     const n = CHART_DAY_RANGE;
     const raw = countByDay(n);
-    const max = Math.max(...raw.map((d) => d.count), 1);
-    const items = raw.map((d) => ({
+    const counts = raw.map((d) => chartCountOnDate(d.date));
+    const max = Math.max(...counts, 1);
+    const items = raw.map((d, i) => ({
       label: d.date.slice(5).replace("-", "/"),
-      count: d.count,
-      pct: d.count / max,
+      count: counts[i],
+      pct: counts[i] / max,
       filterKey: d.date,
     }));
     items.reverse(); // 新→旧（左：最近）
@@ -100,12 +133,19 @@ const chartData = computed((): ChartBarItem[] => {
   if (activeTab.value === "week") {
     const n = 8;
     const raw = countByWeek(n);
-    const max = Math.max(...raw.map((d) => d.count), 1);
+    const counts = raw.map((_, j) => {
+      const i = n - 1 - j;
+      const end = new Date(); end.setDate(end.getDate() - i * 7);
+      const start = new Date(end); start.setDate(start.getDate() - 6);
+      return chartCountInRange(ds(start), ds(end));
+    });
+    const max = Math.max(...counts, 1);
     const items = raw.map((d, j) => {
       const i = n - 1 - j;
       const end = new Date(); end.setDate(end.getDate() - i * 7);
       const start = new Date(end); start.setDate(start.getDate() - 6);
-      return { label: d.label, count: d.count, pct: d.count / max, filterKey: `${ds(start)}~${ds(end)}` };
+      const count = counts[j];
+      return { label: d.label, count, pct: count / max, filterKey: `${ds(start)}~${ds(end)}` };
     });
     items.reverse();
     return items;
@@ -113,13 +153,20 @@ const chartData = computed((): ChartBarItem[] => {
   if (activeTab.value === "month") {
     const n = 12;
     const raw = countByMonth(n);
-    const max = Math.max(...raw.map((d) => d.count), 1);
     const now = new Date();
+    const counts = raw.map((_, j) => {
+      const i = n - 1 - j;
+      const md = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const prefix = `${md.getFullYear()}-${String(md.getMonth() + 1).padStart(2, "0")}`;
+      return chartCountInMonth(prefix);
+    });
+    const max = Math.max(...counts, 1);
     const items = raw.map((d, j) => {
       const i = n - 1 - j;
       const md = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const prefix = `${md.getFullYear()}-${String(md.getMonth() + 1).padStart(2, "0")}`;
-      return { label: d.label, count: d.count, pct: d.count / max, filterKey: prefix };
+      const count = counts[j];
+      return { label: d.label, count, pct: count / max, filterKey: prefix };
     });
     items.reverse();
     return items;
@@ -127,11 +174,12 @@ const chartData = computed((): ChartBarItem[] => {
   if (activeTab.value === "year") {
     const n = CHART_YEAR_RANGE;
     const raw = countByYear(n);
-    const max = Math.max(...raw.map((d) => d.count), 1);
-    const items = raw.map((d) => ({
+    const counts = raw.map((d) => chartCountInYear(d.year));
+    const max = Math.max(...counts, 1);
+    const items = raw.map((d, i) => ({
       label: d.label,
-      count: d.count,
-      pct: d.count / max,
+      count: counts[i],
+      pct: counts[i] / max,
       filterKey: String(d.year),
     }));
     items.reverse();
@@ -140,13 +188,45 @@ const chartData = computed((): ChartBarItem[] => {
   return [];
 });
 
+
 /* ── 图表选中 → 筛选记录 ── */
 const selectedBarKey = ref<string | null>(null);
-watch(activeTab, () => { selectedBarKey.value = null; });
+watch(activeTab, () => {
+  selectedBarKey.value = null;
+});
 
 function selectBar(key: string) {
   selectedBarKey.value = selectedBarKey.value === key ? null : key;
 }
+
+/** 柱顶折线：与原有 bar-fill 高度算法一致（含 5% 最小柱高） */
+const CHART_COL_W = 44;
+const CHART_H = 160;
+const CHART_PLOT_TOP = 18;
+const CHART_PLOT_BOTTOM = 146;
+
+const trendOverlay = computed(() => {
+  const items = chartData.value;
+  const plotH = CHART_PLOT_BOTTOM - CHART_PLOT_TOP;
+  const dots = items.map((item, i) => {
+    const barPct = item.pct > 0 ? Math.max(item.pct * 100, 5) : 0;
+    return {
+      x: i * CHART_COL_W + CHART_COL_W / 2,
+      y: CHART_PLOT_BOTTOM - (barPct / 100) * plotH,
+    };
+  });
+  return {
+    width: Math.max(items.length * CHART_COL_W, CHART_COL_W),
+    height: CHART_H,
+    dots,
+    polyline: dots.map((d) => `${d.x},${d.y}`).join(" "),
+  };
+});
+
+onMounted(() => {
+  fetchRecords().catch(() => {});
+  loadRecentCheckIns().catch(() => {});
+});
 
 const filterLabel = computed(() => {
   const key = selectedBarKey.value;
@@ -172,6 +252,13 @@ const filteredRecords = computed(() => {
   if (activeTab.value === "month") return records.value.filter((r) => r.date.startsWith(key));
   if (activeTab.value === "year") return records.value.filter((r) => r.date.startsWith(`${key}-`));
   return [];
+});
+
+/** 选中的是「按天」中仅有打卡但无行为记录的日期 */
+const selectedDayCheckInOnly = computed(() => {
+  if (!selectedBarKey.value || activeTab.value !== "day") return false;
+  if (filteredRecords.value.length > 0) return false;
+  return checkInDaysMap.value[selectedBarKey.value] === "deer";
 });
 
 /* ── 记录展开 / 备注编辑 ── */
@@ -230,12 +317,6 @@ function formatTime(ts: number): string {
 <template>
   <div class="page">
 
-    <!-- 顶栏 -->
-    <div class="topbar">
-      <span class="topbar-title">鹿了么</span>
-      <button type="button" class="logout-btn" @click="handleLogout">退出</button>
-    </div>
-
     <!-- 加载占位 -->
     <div v-if="loading" class="loading-hint">
       <span class="loading-dot" /><span class="loading-dot" /><span class="loading-dot" />
@@ -260,20 +341,7 @@ function formatTime(ts: number): string {
         <p class="recommend-label">{{ recommendation.label }}</p>
         <p class="recommend-hint">{{ recommendation.hint }}</p>
       </div>
-      <div class="today-card">
-        <p class="card-eyebrow">今日</p>
-        <p class="today-count">{{ todayCount }}</p>
-        <p class="today-unit">次</p>
-        <button
-          type="button"
-          class="record-btn"
-          :class="{ recorded: justRecorded }"
-          :disabled="addingRecord"
-          @click="handleAddRecord"
-        >
-          {{ justRecorded ? "✓ 已记录" : addingRecord ? "记录中…" : "今天鹿了" }}
-        </button>
-      </div>
+      <TodayCheckIn @deer-done="onDeerDone" @backfill-done="onBackfillDone" />
     </div>
 
     <!-- 统计图表 -->
@@ -289,9 +357,31 @@ function formatTime(ts: number): string {
         >{{ tab.label }}</button>
       </div>
 
-      <!-- 可横向滚动的图表区域 -->
+      <!-- 可横向滚动的图表区域（柱 + 柱顶折线） -->
       <div class="chart-scroll">
         <div class="chart">
+          <svg
+            v-if="trendOverlay.dots.length > 1"
+            class="chart-line-overlay"
+            :viewBox="`0 0 ${trendOverlay.width} ${trendOverlay.height}`"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <polyline
+              class="chart-line"
+              :points="trendOverlay.polyline"
+              fill="none"
+            />
+            <circle
+              v-for="(dot, idx) in trendOverlay.dots"
+              :key="`${activeTab}-dot-${idx}`"
+              class="chart-dot"
+              :class="{ 'chart-dot-selected': selectedBarKey === chartData[idx]?.filterKey }"
+              :cx="dot.x"
+              :cy="dot.y"
+              :r="selectedBarKey === chartData[idx]?.filterKey ? 4.5 : 3.5"
+            />
+          </svg>
           <div
             v-for="item in chartData"
             :key="`${activeTab}-${item.filterKey}`"
@@ -322,7 +412,9 @@ function formatTime(ts: number): string {
       </div>
 
       <div v-if="filteredRecords.length === 0" class="empty-hint">
-        {{ selectedBarKey ? "该时间段暂无记录" : "还没有任何记录，点击「今天鹿了」开始记录。" }}
+        <template v-if="!selectedBarKey">还没有任何记录，在右侧打卡「今天鹿了」可同时记一条行为。</template>
+        <template v-else-if="selectedDayCheckInOnly">该日期已打卡「鹿了」，但未同步行为记录。</template>
+        <template v-else>该时间段暂无行为记录。</template>
       </div>
 
       <ul v-else class="record-list">
@@ -358,6 +450,7 @@ function formatTime(ts: number): string {
                   class="note-input"
                   placeholder="写下这一刻的感受…"
                   rows="3"
+                  autocomplete="off"
                   :disabled="savingNote"
                 />
                 <div class="note-edit-actions">
@@ -404,33 +497,6 @@ function formatTime(ts: number): string {
   gap: 12px;
 }
 
-/* ── Topbar ── */
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 2px 2px 4px;
-}
-.topbar-title {
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.logout-btn {
-  background: none;
-  border: 1px solid var(--card-border);
-  color: var(--muted);
-  font-size: 12px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  transition: color 0.15s, border-color 0.15s;
-}
-.logout-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
-
 /* ── Loading ── */
 .loading-hint {
   display: flex;
@@ -457,86 +523,51 @@ function formatTime(ts: number): string {
 /* ── Streak Banner ── */
 .streak-banner {
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, rgba(17,24,34,0.95), rgba(10,14,22,0.95));
-  border: 1px solid rgba(255,255,255,0.07);
-  padding: 18px 18px 14px;
-  position: relative;
-  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  padding: 14px 16px 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
-.streak-banner::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-lg);
-  padding: 1px;
-  background: linear-gradient(135deg, var(--accent-color, var(--accent-b)), transparent 60%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-.streak-inner { display: flex; align-items: center; gap: 18px; }
+.streak-inner { display: flex; align-items: center; gap: 14px; }
 .streak-days {
-  font-size: 64px;
+  font-size: 52px;
   font-weight: 900;
   line-height: 1;
   color: var(--accent-color, var(--accent-b));
-  text-shadow: 0 0 40px color-mix(in srgb, var(--accent-color, var(--accent-b)) 40%, transparent);
-  min-width: 72px;
+  min-width: 60px;
   text-align: center;
 }
-.streak-text { flex: 1; }
-.streak-title { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
-.streak-sub { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.55; }
-.streak-label { margin-top: 10px; font-size: 11px; color: rgba(148,163,184,0.5); text-transform: uppercase; letter-spacing: 0.1em; }
+.streak-text { flex: 1; min-width: 0; }
+.streak-title { margin: 0 0 3px; font-size: 16px; font-weight: 700; }
+.streak-sub { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.streak-label { margin-top: 8px; font-size: 10px; color: var(--muted); opacity: 0.6; text-transform: uppercase; letter-spacing: 0.1em; }
 
 /* ── Two-column row ── */
 .row-two {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
+  grid-template-columns: 1fr minmax(136px, 40%);
+  gap: 10px;
   align-items: stretch;
 }
 .card-eyebrow {
-  margin: 0 0 6px;
+  margin: 0 0 5px;
   font-size: 11px;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
-.recommend-card,
-.today-card {
+.recommend-card {
   border-radius: var(--radius-lg);
   background: var(--card);
   border: 1px solid var(--card-border);
   padding: 14px;
-}
-.recommend-label { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: var(--accent-a); }
-.recommend-hint { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
-.today-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  min-width: 90px;
-  gap: 2px;
+  gap: 4px;
 }
-.today-count { margin: 0; font-size: 40px; font-weight: 900; color: var(--accent-b); line-height: 1; }
-.today-unit { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
-.record-btn {
-  width: 100%;
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-size: 13px;
-  font-weight: 700;
-  border: none;
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
-  color: #04120a;
-  transition: opacity 0.2s, transform 0.1s;
-}
-.record-btn.recorded { background: rgba(34,197,94,0.18); color: var(--accent-a); }
-.record-btn:active { transform: scale(0.96); }
+.recommend-label { margin: 0; font-size: 15px; font-weight: 700; color: var(--accent-a); }
+.recommend-hint { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
 
 /* ── Chart ── */
 .chart-card {
@@ -562,8 +593,8 @@ function formatTime(ts: number): string {
   transition: all 0.15s;
 }
 .tab-btn.active {
-  background: rgba(56,189,248,0.14);
-  border-color: rgba(56,189,248,0.4);
+  background: rgba(2,132,199,0.12);
+  border-color: rgba(2,132,199,0.40);
   color: var(--text);
 }
 
@@ -573,22 +604,54 @@ function formatTime(ts: number): string {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding-bottom: 2px;
-  /* 去掉移动端点击时出现的那段半透明浅色闪烁（浏览器自带 tap highlight） */
   -webkit-tap-highlight-color: transparent;
 }
 .chart-scroll::-webkit-scrollbar { display: none; }
 
 .chart {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 6px;
   height: 160px;
-  /* 保持每列最小宽度，超出父容器宽度时才滚动 */
   min-width: max-content;
   width: 100%;
 }
 
+.chart-line-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  overflow: visible;
+}
+
+.chart-line {
+  stroke: #cbd5e1;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-dot {
+  fill: #e2e8f0;
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-dot-selected {
+  fill: #bfdbfe;
+  stroke: var(--accent-b);
+}
+
 .chart-col {
+  position: relative;
+  z-index: 1;
   min-width: 44px;
   flex: 1;
   display: flex;
@@ -604,8 +667,8 @@ function formatTime(ts: number): string {
   touch-action: manipulation;
   user-select: none;
 }
-.chart-col:hover { background: rgba(255,255,255,0.04); }
-.chart-col.selected { background: rgba(56,189,248,0.1); }
+.chart-col:hover { background: rgba(0,0,0,0.04); }
+.chart-col.selected { background: rgba(2,132,199,0.08); }
 
 .bar-count { font-size: 11px; color: var(--muted); height: 14px; line-height: 14px; }
 .bar-track {
@@ -613,19 +676,20 @@ function formatTime(ts: number): string {
   width: 100%;
   display: flex;
   align-items: flex-end;
-  background: rgba(255,255,255,0.04);
+  background: rgba(0,0,0,0.06);
   border-radius: 6px 6px 4px 4px;
   overflow: hidden;
 }
 .bar-fill {
   width: 100%;
   border-radius: 5px 5px 3px 3px;
-  background: linear-gradient(180deg, var(--accent-b), rgba(56,189,248,0.4));
+  background: var(--accent-b);
+  opacity: 0.7;
   transition: height 0.4s cubic-bezier(0.34,1.56,0.64,1);
   min-height: 0;
 }
 .chart-col.selected .bar-fill {
-  background: linear-gradient(180deg, #60e6ff, rgba(56,189,248,0.7));
+  opacity: 1;
 }
 .bar-label {
   font-size: 10px;
@@ -635,6 +699,7 @@ function formatTime(ts: number): string {
   text-align: center;
 }
 .chart-col.selected .bar-label { color: var(--accent-b); }
+
 
 /* ── Record List ── */
 .record-list-card {
@@ -660,11 +725,11 @@ function formatTime(ts: number): string {
   font-size: 11px;
   font-weight: 600;
   color: var(--accent-b);
-  background: rgba(56,189,248,0.1);
-  border: 1px solid rgba(56,189,248,0.3);
+  background: rgba(2,132,199,0.08);
+  border: 1px solid rgba(2,132,199,0.28);
   transition: background 0.15s;
 }
-.filter-badge:hover { background: rgba(56,189,248,0.18); }
+.filter-badge:hover { background: rgba(2,132,199,0.14); }
 .filter-close { opacity: 0.7; }
 
 .empty-hint {
@@ -689,7 +754,7 @@ function formatTime(ts: number): string {
   overflow: hidden;
   transition: background 0.15s;
 }
-.record-item-wrapper:hover { background: rgba(255,255,255,0.02); }
+.record-item-wrapper:hover { background: rgba(0,0,0,0.03); }
 
 .record-row {
   display: flex;
@@ -732,7 +797,7 @@ function formatTime(ts: number): string {
   flex-shrink: 0;
   transition: color 0.15s, background 0.15s, transform 0.25s ease;
 }
-.expand-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+.expand-btn:hover { color: var(--text); background: rgba(0,0,0,0.06); }
 .expand-btn.expanded { transform: rotate(180deg); color: var(--accent-b); }
 
 /* 展开详情 */
@@ -742,7 +807,7 @@ function formatTime(ts: number): string {
 
 .note-input {
   width: 100%;
-  background: rgba(0,0,0,0.2);
+  background: rgba(0,0,0,0.04);
   border: 1px solid var(--card-border);
   border-radius: 10px;
   color: var(--text);
@@ -754,8 +819,8 @@ function formatTime(ts: number): string {
   transition: border-color 0.18s, box-shadow 0.18s;
 }
 .note-input:focus {
-  border-color: rgba(56,189,248,0.45);
-  box-shadow: 0 0 0 3px rgba(56,189,248,0.08);
+  border-color: rgba(2,132,199,0.45);
+  box-shadow: 0 0 0 3px rgba(2,132,199,0.08);
 }
 .note-input:disabled { opacity: 0.5; }
 
@@ -780,18 +845,18 @@ function formatTime(ts: number): string {
   border-radius: 8px;
   font-size: 12px;
   font-weight: 700;
-  background: rgba(56,189,248,0.15);
-  border: 1px solid rgba(56,189,248,0.35);
+  background: rgba(2,132,199,0.12);
+  border: 1px solid rgba(2,132,199,0.32);
   color: var(--accent-b);
   transition: background 0.15s;
 }
-.confirm-btn:hover { background: rgba(56,189,248,0.25); }
+.confirm-btn:hover { background: rgba(2,132,199,0.20); }
 .confirm-btn:disabled, .cancel-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .note-text {
   margin: 0 0 8px;
   font-size: 13px;
-  color: rgba(226,232,240,0.85);
+  color: var(--text);
   line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
@@ -808,13 +873,13 @@ function formatTime(ts: number): string {
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
-  background: rgba(255,255,255,0.05);
-  border: 1px dashed rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.03);
+  border: 1px dashed rgba(0,0,0,0.15);
   border-radius: 8px;
   padding: 5px 14px;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.write-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
+.write-btn:hover { color: var(--text); border-color: rgba(0,0,0,0.25); background: rgba(0,0,0,0.06); }
 
 .edit-note-btn {
   font-size: 12px;

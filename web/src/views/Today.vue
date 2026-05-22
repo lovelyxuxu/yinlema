@@ -115,13 +115,11 @@ function clearVerdict() {
 
 <template>
   <div class="page">
-    <header class="hero">
-      <h2>今日鹿么</h2>
-      <p class="lead">
-        当前身份：<strong class="active-label">{{ activeRole.label }}</strong>，
-        鹿的概率约为 <strong>{{ Math.round(activeRole.luProbability * 100) }}%</strong>。
-      </p>
-    </header>
+    <p class="page-intro lead">
+      当前身份：<strong class="active-label">{{ activeRole.label }}</strong>，
+      鹿的概率约为 <strong>{{ Math.round(activeRole.luProbability * 100) }}%</strong>。
+      每日打卡与补卡请在「鹿了么」页完成。
+    </p>
 
     <div class="card">
       <!-- 顶部 badge -->
@@ -205,6 +203,10 @@ function clearVerdict() {
   gap: 14px;
 }
 
+.page-intro {
+  margin: 0 0 4px;
+}
+
 .lead {
   margin: 0;
   color: var(--muted);
@@ -226,11 +228,9 @@ function clearVerdict() {
   border-radius: 22px;
   margin-top: 10px;
   padding: 12px 18px 18px 18px;
-  background: linear-gradient(180deg, rgba(20, 28, 40, 0.95), rgba(12, 16, 24, 0.95));
+  background: var(--card);
   border: 1px solid var(--card-border);
-  box-shadow:
-    0 18px 50px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
 }
 
 .badge {
@@ -240,8 +240,8 @@ function clearVerdict() {
   padding: 6px 10px;
   margin-bottom: 10px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--card-border);
   color: var(--muted);
   font-size: 12px;
 }
@@ -250,8 +250,7 @@ function clearVerdict() {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: radial-gradient(circle at 30% 30%, #e0f2fe, #38bdf8);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.55);
+  background: var(--accent-b);
 }
 
 /* ── Panel ── */
@@ -259,22 +258,20 @@ function clearVerdict() {
   margin-top: 4px;
   padding: 18px 16px;
   border-radius: var(--radius-lg);
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--card-border);
   transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
   text-align: center;
 }
 
 .panel-lu {
-  border-color: rgba(248, 113, 113, 0.3);
-  background: rgba(248, 113, 113, 0.06);
-  box-shadow: 0 0 40px var(--glow);
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.05);
 }
 
 .panel-not {
   border-color: rgba(34, 197, 94, 0.3);
   background: rgba(34, 197, 94, 0.06);
-  box-shadow: 0 0 40px var(--glow);
 }
 
 .panel-icon {
@@ -299,7 +296,7 @@ function clearVerdict() {
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--muted);
 }
 
 .panel-title {
@@ -321,15 +318,15 @@ function clearVerdict() {
 
 .panel-sub {
   margin: 0 0 4px;
-  color: rgba(226, 232, 240, 0.7);
+  color: var(--muted);
   font-size: 13px;
 }
 
 .follow {
   margin: 12px 0 0;
   padding-top: 12px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.1);
-  color: rgba(224, 242, 254, 0.9);
+  border-top: 1px dashed rgba(0, 0, 0, 0.12);
+  color: var(--text);
   line-height: 1.65;
   font-size: 13px;
   text-align: left;
@@ -341,9 +338,9 @@ function clearVerdict() {
 }
 
 .sync-btn {
-  background: rgba(248, 113, 113, 0.12);
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: var(--danger);
   border-radius: 10px;
   padding: 7px 16px;
   font-size: 13px;
@@ -352,7 +349,7 @@ function clearVerdict() {
 }
 
 .sync-btn:hover {
-  background: rgba(248, 113, 113, 0.2);
+  background: rgba(239, 68, 68, 0.14);
 }
 
 .sync-btn:active {
@@ -390,10 +387,9 @@ function clearVerdict() {
 }
 
 .btn.primary {
-  color: #04120a;
+  color: #fff;
   border: 0;
-  background: linear-gradient(90deg, #22c55e, #38bdf8);
-  box-shadow: 0 10px 28px rgba(34, 197, 94, 0.2);
+  background: var(--accent-a);
 }
 
 .btn.primary:disabled {
@@ -403,8 +399,8 @@ function clearVerdict() {
 }
 
 .btn.ghost {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.10);
   color: var(--muted);
 }
 
@@ -425,7 +421,8 @@ function clearVerdict() {
 
 .footer-note {
   margin: 12px 0 0;
-  color: rgba(148, 163, 184, 0.7);
+  color: var(--muted);
+  opacity: 0.75;
   font-size: 11px;
   line-height: 1.55;
   text-align: center;

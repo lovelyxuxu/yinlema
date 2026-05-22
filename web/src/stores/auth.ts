@@ -3,11 +3,23 @@ import { apiFetch, ApiError, getStoredToken, saveToken, removeToken } from "../a
 
 export type IdentityRoleId = "balanced" | "sigma" | "chaos";
 
+/** 注册时提交到后端的行政区划 */
+export interface UserRegionPayload {
+  province_code: string;
+  city_code: string;
+  district_code: string;
+  province_name: string;
+  city_name: string;
+  district_name: string;
+}
+
 export interface UserInfo {
   user_id: string;
   username: string;
   identity_role: IdentityRoleId;
   created_at: string;
+  region?: UserRegionPayload | null;
+  plaza_display_name?: string | null;
 }
 
 interface TokenResponse {
@@ -32,14 +44,20 @@ function applyTokenResponse(data: TokenResponse): void {
     username: data.username,
     identity_role: data.identity_role as IdentityRoleId,
     created_at: "",
+    region: null,
+    plaza_display_name: null,
   };
 }
 
 export function useAuth() {
-  async function register(username: string, password: string): Promise<void> {
+  async function register(
+    username: string,
+    password: string,
+    region: UserRegionPayload,
+  ): Promise<void> {
     const data = await apiFetch<TokenResponse>("/auth/register", {
       method: "POST",
-      body: { username, password },
+      body: { username, password, region },
       token: null,
     });
     applyTokenResponse(data);

@@ -21,7 +21,7 @@ from ..schemas.social import (
     PostResponse,
 )
 
-router = APIRouter(prefix="/social", tags=["广场"])
+router = APIRouter(prefix="/social", tags=["七嘴八舌"])
 
 
 def _anon_display(u: dict) -> str:

@@ -45,7 +45,7 @@ async def update_identity(
 @router.patch(
     "/me/display-name",
     response_model=UserResponse,
-    summary="设置广场展示昵称",
+    summary="设置七嘴八舌展示昵称",
 )
 async def update_display_name(
     body: PlazaDisplayNameRequest,

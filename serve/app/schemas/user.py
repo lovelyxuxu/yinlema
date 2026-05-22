@@ -22,4 +22,4 @@ class UpdateIdentityRequest(BaseModel):
 
 
 class PlazaDisplayNameRequest(BaseModel):
-    plaza_display_name: str = Field(..., min_length=1, max_length=24, description="广场展示昵称")
+    plaza_display_name: str = Field(..., min_length=1, max_length=24, description="七嘴八舌展示昵称")

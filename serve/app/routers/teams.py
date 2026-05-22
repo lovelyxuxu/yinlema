@@ -40,8 +40,14 @@ async def _member_count(db: AsyncIOMotorDatabase, team_hex: str) -> int:
 async def _build_team_card(
     db: AsyncIOMotorDatabase,
     tdoc: dict,
+    current_user_id: str | None = None,
 ) -> TeamResponse:
     tid = str(tdoc["_id"])
+    is_mine = False
+    if current_user_id:
+        is_mine = await db["team_members"].count_documents(
+            {"team_id": tid, "user_id": current_user_id}
+        ) > 0
     return TeamResponse(
         team_id=tid,
         name=tdoc["name"],
@@ -49,7 +55,23 @@ async def _build_team_card(
         auto_kick_miss_gt=int(tdoc.get("auto_kick_miss_gt", 20)),
         member_count=await _member_count(db, tid),
         created_at=tdoc["created_at"],
+        is_mine=is_mine,
     )
+
+
+@router.get("", response_model=list[TeamResponse])
+async def list_teams(
+    q: str | None = Query(None, max_length=64),
+    current_user: UserInDB = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+) -> list[TeamResponse]:
+    """列出所有小队（广场），可按名称模糊搜索。"""
+    filt: dict = {}
+    if q and q.strip():
+        import re as _re
+        filt["name"] = {"$regex": _re.escape(q.strip()), "$options": "i"}
+    docs = await db["teams"].find(filt).sort("created_at", -1).to_list(length=200)
+    return [await _build_team_card(db, d, current_user.id) for d in docs]
 
 
 @router.post("", response_model=TeamResponse, status_code=status.HTTP_201_CREATED)
@@ -82,7 +104,7 @@ async def create_team(
     )
 
     doc = await db["teams"].find_one({"_id": res.inserted_id})
-    return await _build_team_card(db, doc)
+    return await _build_team_card(db, doc, current_user.id)
 
 
 @router.get("/mine", response_model=TeamDetailResponse | None)
@@ -109,7 +131,7 @@ async def my_team(
         .to_list(length=500)
     )
     detail = TeamDetailResponse(
-        team=await _build_team_card(db, team_doc),
+        team=await _build_team_card(db, team_doc, current_user.id),
         members=[
             TeamMemberItem(user_id=x["user_id"], joined_local_date=x["joined_local_date"])
             for x in members_docs
@@ -138,7 +160,7 @@ async def get_team(
     )
 
     return TeamDetailResponse(
-        team=await _build_team_card(db, doc),
+        team=await _build_team_card(db, doc, current_user.id),
         members=[
             TeamMemberItem(user_id=x["user_id"], joined_local_date=x["joined_local_date"])
             for x in members_docs
@@ -179,7 +201,7 @@ async def join_team(
         await db["team_members"].delete_one({"team_id": team_id, "user_id": current_user.id})
         raise HTTPException(status_code=500, detail="小队数据异常")
 
-    return await _build_team_card(db, refreshed)
+    return await _build_team_card(db, refreshed, current_user.id)
 
 
 @router.post("/{team_id}/leave", status_code=status.HTTP_204_NO_CONTENT)

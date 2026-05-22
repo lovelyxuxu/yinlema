@@ -6,7 +6,7 @@ const route = useRoute();
 
 const tabs = [
   { to: "/social/rank", label: "排名" },
-  { to: "/social/plaza", label: "广场" },
+  { to: "/social/plaza", label: "七嘴八舌" },
   { to: "/social/teams", label: "小组" },
 ];
 

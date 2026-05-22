@@ -386,7 +386,7 @@ function onCommented() {
                 v-model="compose"
                 class="ta"
                 maxlength="900"
-                placeholder="匿名广场，注意友善交流…"
+                placeholder="匿名，注意友善交流…"
                 rows="5"
                 autocomplete="off"
               />

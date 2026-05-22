@@ -15,6 +15,7 @@ class TeamResponse(BaseModel):
     auto_kick_miss_gt: int
     member_count: int
     created_at: datetime
+    is_mine: bool = False
 
 
 class TeamMemberItem(BaseModel):

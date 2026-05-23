@@ -1,14 +1,15 @@
 :root {
   color-scheme: light;
-  --bg: #f1f5f9;
-  --bg-elevated: #e2e8f0;
-  --card: #ffffff;
-  --card-border: rgba(0, 0, 0, 0.09);
-  --text: #1e293b;
-  --muted: #64748b;
-  --accent-a: #16a34a;
-  --accent-b: #0284c7;
-  --danger: #ef4444;
+  --bg: #fdf2f8;
+  --bg-elevated: #fce7f3;
+  --card: #fffbff;
+  --card-border: rgba(190, 24, 93, 0.08);
+  --text: #4a044e;
+  --muted: #9d174d;
+  --accent-a: #ec4899;
+  --accent-b: #c084fc;
+  --accent-warm: #fb7185;
+  --danger: #e11d48;
   --radius-lg: 18px;
   --radius-md: 12px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -52,4 +53,16 @@ textarea,
 select {
   font: inherit;
   color: inherit;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-warm));
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(236, 72, 153, 0.25);
+}
+
+.card-soft {
+  box-shadow: 0 4px 20px rgba(236, 72, 153, 0.12);
 }

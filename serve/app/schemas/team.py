@@ -35,4 +35,4 @@ class TeamStatResponse(BaseModel):
     range_start: str
     range_end: str
     record_count: int
-    deer_rate: float
+    event_rate: float

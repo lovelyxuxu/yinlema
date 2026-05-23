@@ -66,6 +66,33 @@ def ym_tuple(d: date) -> tuple[int, int]:
     return d.year, d.month
 
 
+def iter_local_dates_inclusive(start: date, end: date) -> list[str]:
+    """闭区间内每个上海日历日 YYYY-MM-DD。"""
+    out: list[str] = []
+    d = start
+    while d <= end:
+        out.append(d.isoformat())
+        d += timedelta(days=1)
+    return out
+
+
+def missed_record_days_calendar_month_naive_shanghai(
+    joined_local_date: date,
+    today_local: date,
+    record_dates_set: frozenset[str],
+) -> int:
+    """自然月内无行为记录的天数（用于小队自动踢人）。"""
+    month_first = date(today_local.year, today_local.month, 1)
+    effective_start = max(month_first, joined_local_date)
+    missed = 0
+    d = effective_start
+    while d <= today_local:
+        if d.isoformat() not in record_dates_set:
+            missed += 1
+        d += timedelta(days=1)
+    return missed
+
+
 def missed_checkins_calendar_month_naive_shanghai(
     joined_local_date: date,
     today_local: date,

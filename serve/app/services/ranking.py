@@ -6,8 +6,10 @@ from collections import defaultdict
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field, ValidationError
 
-from ..core.dates_cn import MetricLiteral, PeriodLiteral, ScopeLiteral, get_period_bounds
+from ..core.dates_cn import MetricLiteral, PeriodLiteral, ScopeLiteral, get_period_bounds, iter_local_dates_inclusive
+from ..models.habit import DEFAULT_HABIT
 from ..models.region import UserRegion
+from ..services.stats import compute_days_with_records_rate
 
 
 TEAM_RANK_MIN_MEMBERS = 10
@@ -57,6 +59,13 @@ def _bucket_label_from_region(region_data: dict, scope: str) -> str:
     return " ".join(parts) if parts else r.district_code
 
 
+def _uids_by_bucket(uid_to_bucket: dict[str, str]) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = defaultdict(list)
+    for uid, bcode in uid_to_bucket.items():
+        out[bcode].append(uid)
+    return out
+
+
 async def geographic_rank(
     db: AsyncIOMotorDatabase,
     *,
@@ -67,6 +76,7 @@ async def geographic_rank(
 ) -> RankingsResponse:
     start, end = get_period_bounds(anchor_day, period)
     rs, re = start.isoformat(), end.isoformat()
+    period_dates = iter_local_dates_inclusive(start, end)
 
     users = await db["users"].find(
         {
@@ -112,50 +122,39 @@ async def geographic_rank(
         )
 
     uid_list = list(uid_to_bucket.keys())
-    uid_set = frozenset(uid_list)
+    bucket_uids = _uids_by_bucket(uid_to_bucket)
 
     rec_counts_bucket: defaultdict[str, int] = defaultdict(int)
+    user_dates: defaultdict[str, set[str]] = defaultdict(set)
+
     async for d in db["records"].find(
-        {"user_id": {"$in": uid_list}, "date": {"$gte": rs, "$lte": re}},
-        {"user_id": 1},
+        {
+            "user_id": {"$in": uid_list},
+            "habit_type": DEFAULT_HABIT,
+            "date": {"$gte": rs, "$lte": re},
+        },
+        {"user_id": 1, "date": 1},
     ):
         uid = d["user_id"]
         bcode = uid_to_bucket.get(uid)
         if not bcode:
             continue
         rec_counts_bucket[bcode] += 1
-
-    deer_by_user: defaultdict[str, int] = defaultdict(int)
-    total_ci_by_user: defaultdict[str, int] = defaultdict(int)
-    async for d in db["check_ins"].find(
-        {"user_id": {"$in": uid_list}, "local_date": {"$gte": rs, "$lte": re}},
-        {"user_id": 1, "status": 1},
-    ):
-        uid = d["user_id"]
-        if uid not in uid_set:
-            continue
-        total_ci_by_user[uid] += 1
-        if d.get("status") == "deer":
-            deer_by_user[uid] += 1
-
-    bucket_deer_sum = defaultdict(float)
-    bucket_ci_sum = defaultdict(float)
-    for uid, bcode in uid_to_bucket.items():
-        td = total_ci_by_user.get(uid, 0)
-        if td <= 0:
-            continue
-        bucket_ci_sum[bcode] += td
-        bucket_deer_sum[bcode] += float(deer_by_user.get(uid, 0))
+        user_dates[uid].add(d["date"])
 
     bucket_label_keys = sorted(bucket_label.keys())
+    values: dict[str, float] = {}
 
     if metric == "count":
         values = {b: float(rec_counts_bucket.get(b, 0)) for b in bucket_label_keys}
     else:
-        values = {}
         for bcode in bucket_label_keys:
-            den = bucket_ci_sum[bcode]
-            values[bcode] = (bucket_deer_sum[bcode] / den) if den > 0 else 0.0
+            uids = bucket_uids.get(bcode, [])
+            values[bcode] = compute_days_with_records_rate(
+                user_dates_with_records=dict(user_dates),
+                period_dates=period_dates,
+                user_ids=uids,
+            )
 
     merged_codes = sorted(
         bucket_label_keys,
@@ -172,8 +171,6 @@ async def geographic_rank(
         for i, c in enumerate(merged_codes)
     ]
 
-    rows = rows[:120]
-
     return RankingsResponse(
         scope=scope,
         period=period,
@@ -181,7 +178,7 @@ async def geographic_rank(
         anchor=anchor_day.isoformat(),
         range_start=rs,
         range_end=re,
-        rows=rows,
+        rows=rows[:120],
         note=None,
     )
 
@@ -195,6 +192,7 @@ async def team_rank(
 ) -> RankingsResponse:
     start, end = get_period_bounds(anchor_day, period)
     rs, re = start.isoformat(), end.isoformat()
+    period_dates = iter_local_dates_inclusive(start, end)
 
     memberships_by_team: dict[str, list[str]] = defaultdict(list)
     for m in await db["team_members"].find({}).to_list(length=500_000):
@@ -232,47 +230,33 @@ async def team_rank(
             valid_uids.add(uid)
 
     valid_list = list(valid_uids)
-
     rec_by_team: defaultdict[str, int] = defaultdict(int)
-
-    deer_by_uid: defaultdict[str, int] = defaultdict(int)
-    ci_by_uid: defaultdict[str, int] = defaultdict(int)
+    user_dates: defaultdict[str, set[str]] = defaultdict(set)
 
     async for d in db["records"].find(
-        {"user_id": {"$in": valid_list}, "date": {"$gte": rs, "$lte": re}},
-        {"user_id": 1},
+        {
+            "user_id": {"$in": valid_list},
+            "habit_type": DEFAULT_HABIT,
+            "date": {"$gte": rs, "$lte": re},
+        },
+        {"user_id": 1, "date": 1},
     ):
         uid = d["user_id"]
+        user_dates[uid].add(d["date"])
         for tid in uid_to_teams.get(uid, []):
             rec_by_team[tid] += 1
-
-    async for d in db["check_ins"].find(
-        {"user_id": {"$in": valid_list}, "local_date": {"$gte": rs, "$lte": re}},
-        {"user_id": 1, "status": 1},
-    ):
-        uid = d["user_id"]
-        ci_by_uid[uid] += 1
-        if d.get("status") == "deer":
-            deer_by_uid[uid] += 1
-
-    team_deer = defaultdict(float)
-    team_ci = defaultdict(float)
-    for uid, tids in uid_to_teams.items():
-        tci = ci_by_uid.get(uid, 0)
-        if tci <= 0:
-            continue
-        dcnt = float(deer_by_uid.get(uid, 0))
-        for tid in tids:
-            team_ci[tid] += tci
-            team_deer[tid] += dcnt
 
     metric_values: dict[str, float] = {}
     for tid in qualifying:
         if metric == "count":
             metric_values[tid] = float(rec_by_team.get(tid, 0))
         else:
-            dn = team_ci[tid]
-            metric_values[tid] = (team_deer[tid] / dn) if dn > 0 else 0.0
+            team_uids = memberships_by_team.get(tid, [])
+            metric_values[tid] = compute_days_with_records_rate(
+                user_dates_with_records=dict(user_dates),
+                period_dates=period_dates,
+                user_ids=team_uids,
+            )
 
     merged = sorted(metric_values.keys(), key=lambda tid: (-metric_values[tid], tid))
 
@@ -286,8 +270,6 @@ async def team_rank(
         for i, tid in enumerate(merged)
     ]
 
-    rows = rows[:120]
-
     return RankingsResponse(
         scope="team",
         period=period,
@@ -295,7 +277,7 @@ async def team_rank(
         anchor=anchor_day.isoformat(),
         range_start=rs,
         range_end=re,
-        rows=rows,
+        rows=rows[:120],
         note=f"仅统计成员不少于 {TEAM_RANK_MIN_MEMBERS} 的队伍",
     )
 
@@ -308,7 +290,7 @@ async def rankings_service(
     period: PeriodLiteral,
     anchor_day,
 ) -> RankingsResponse:
-    scope_s = scope  # noqa
+    scope_s = scope
     if scope_s in ("province", "city", "district"):
         return await geographic_rank(
             db,

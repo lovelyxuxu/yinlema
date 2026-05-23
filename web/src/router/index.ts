@@ -13,9 +13,9 @@ export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: "/auth", name: "auth", component: Auth, meta: { public: true } },
-    { path: "/", name: "records", component: HomeRecords, meta: { title: "鹿了么" } },
-    { path: "/today", name: "today", component: Today, meta: { title: "今日鹿么" } },
-    { path: "/identity", name: "identity", component: Identity, meta: { title: "选择身份" } },
+    { path: "/", name: "records", component: HomeRecords, meta: { title: "瘾了吗" } },
+    { path: "/today", name: "today", component: Today, meta: { title: "今日检定" } },
+    { path: "/identity", name: "identity", component: Identity, meta: { title: "人设" } },
     {
       path: "/social",
       component: SocialHub,

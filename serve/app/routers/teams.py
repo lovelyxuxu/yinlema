@@ -247,37 +247,33 @@ async def _team_stats_aggregate(
             range_start=rs,
             range_end=re,
             record_count=0,
-            deer_rate=0.0,
+            event_rate=0.0,
         )
 
+    from ..core.dates_cn import iter_local_dates_inclusive
+    from ..models.habit import DEFAULT_HABIT
+    from ..services.stats import compute_days_with_records_rate
+
+    period_dates = iter_local_dates_inclusive(start, end)
+    user_dates: defaultdict[str, set[str]] = defaultdict(set)
     rec_count = 0
-    async for _ in db["records"].find(
-        {"user_id": {"$in": uids}, "date": {"$gte": rs, "$lte": re}},
-        {"_id": 1},
+
+    async for d in db["records"].find(
+        {
+            "user_id": {"$in": uids},
+            "habit_type": DEFAULT_HABIT,
+            "date": {"$gte": rs, "$lte": re},
+        },
+        {"user_id": 1, "date": 1},
     ):
         rec_count += 1
+        user_dates[d["user_id"]].add(d["date"])
 
-    deer = defaultdict(int)
-    ci_tot = defaultdict(int)
-    async for d in db["check_ins"].find(
-        {"user_id": {"$in": uids}, "local_date": {"$gte": rs, "$lte": re}},
-        {"user_id": 1, "status": 1},
-    ):
-        u = d["user_id"]
-        ci_tot[u] += 1
-        if d.get("status") == "deer":
-            deer[u] += 1
-
-    dsum = 0.0
-    csum = 0.0
-    for u in uids:
-        ct = ci_tot.get(u, 0)
-        if ct <= 0:
-            continue
-        csum += ct
-        dsum += float(deer.get(u, 0))
-
-    rate = (dsum / csum) if csum > 0 else 0.0
+    rate = compute_days_with_records_rate(
+        user_dates_with_records=dict(user_dates),
+        period_dates=period_dates,
+        user_ids=uids,
+    )
 
     return TeamStatResponse(
         team_id=team_id,
@@ -286,7 +282,7 @@ async def _team_stats_aggregate(
         range_start=rs,
         range_end=re,
         record_count=rec_count,
-        deer_rate=round(rate, 6),
+        event_rate=round(rate, 6),
     )
 
 

@@ -19,7 +19,7 @@ async function handleSetRole(id: Parameters<typeof setRole>[0]) {
 <template>
   <div class="page">
     <p class="page-intro lead">
-      选择你的身份，影响「今日鹿么」里随机到「鹿」的概率。<br>
+      选择人设，影响「今日检定」里的瘾运。<br>
       当前身份：<strong class="active-label">{{ activeRole.label }}</strong>
     </p>
 
@@ -39,7 +39,7 @@ async function handleSetRole(id: Parameters<typeof setRole>[0]) {
           <div class="role-head">
             <span class="role-name">{{ role.label }}</span>
             <span class="role-pill" :class="{ 'pill-active': activeRole.id === role.id }">
-              鹿概率 {{ Math.round(role.luProbability * 100) }}%
+              瘾运 {{ Math.round(role.luProbability * 100) }}%
             </span>
           </div>
           <p class="role-desc">{{ role.description }}</p>
@@ -59,7 +59,7 @@ async function handleSetRole(id: Parameters<typeof setRole>[0]) {
         <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
         <path d="M10 9v5M10 7v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
       </svg>
-      <p>身份设定仅影响「今日鹿么」的随机概率，不会修改已有的历史记录。随时可以切换。</p>
+      <p>人设仅影响今日检定的随机结果，不会写入记录。随时可以换。</p>
     </div>
   </div>
 </template>

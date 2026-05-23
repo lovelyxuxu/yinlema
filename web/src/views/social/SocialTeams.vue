@@ -30,7 +30,7 @@ interface Stat {
   range_start: string;
   range_end: string;
   record_count: number;
-  deer_rate: number;
+  event_rate: number;
 }
 
 /* ─── 共享状态 ──────────────────────────────────────────── */
@@ -238,12 +238,12 @@ onMounted(() => {
           </div>
           <div v-if="stat" class="stat-grid">
             <div class="stat-box">
-              <p class="stat-label">鹿次数</p>
+              <p class="stat-label">瘾次</p>
               <p class="stat-num">{{ stat.record_count }}</p>
             </div>
             <div class="stat-box">
-              <p class="stat-label">鹿率</p>
-              <p class="stat-num">{{ (stat.deer_rate * 100).toFixed(1) }}%</p>
+              <p class="stat-label">出动率</p>
+              <p class="stat-num">{{ (stat.event_rate * 100).toFixed(1) }}%</p>
             </div>
             <div class="stat-box full">
               <p class="stat-label">统计区间</p>

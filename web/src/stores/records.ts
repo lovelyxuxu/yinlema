@@ -1,24 +1,35 @@
 import { computed, ref } from "vue";
 import { apiFetch } from "../api/client";
-import { useAuth } from "./auth";
 
-export interface LuRecord {
+export interface HabitRecord {
   id: string;
-  timestamp: number; // ms since epoch
-  date: string;      // YYYY-MM-DD
+  timestamp: number;
+  date: string;
   note: string;
 }
 
 interface ApiRecord {
   record_id: string;
   user_id: string;
-  timestamp: string; // ISO8601
+  habit_type?: string;
+  timestamp: string;
   date: string;
   note: string;
   created_at: string;
 }
 
-function toLocal(r: ApiRecord): LuRecord {
+interface ApiStats {
+  streak_days_no_record: number;
+  since_last_ms: number | null;
+  today_count: number;
+  longest_streak_no_record: number;
+  recent_frequency: number;
+  by_day: { date: string; count: number }[];
+  by_week: { label: string; count: number }[];
+  by_month: { label: string; count: number }[];
+}
+
+function toLocal(r: ApiRecord): HabitRecord {
   return {
     id: r.record_id,
     timestamp: new Date(r.timestamp).getTime(),
@@ -37,21 +48,14 @@ function today(): string {
   return formatShanghaiDate(new Date());
 }
 
-function accountJoinDate(createdAt?: string | null): string {
-  if (!createdAt) return today();
-  return formatShanghaiDate(new Date(createdAt));
-}
-
-function prevLocalDay(dateStr: string): string {
-  const d = new Date(`${dateStr}T12:00:00+08:00`);
-  d.setDate(d.getDate() - 1);
-  return formatShanghaiDate(d);
-}
-
-/* ── 模块级单例状态 ── */
-const records = ref<LuRecord[]>([]);
+const records = ref<HabitRecord[]>([]);
 const loading = ref(false);
-let _fetched = false; // 避免重复拉取
+const stats = ref<ApiStats | null>(null);
+let _fetched = false;
+
+async function fetchStats(): Promise<void> {
+  stats.value = await apiFetch<ApiStats>("/records/stats");
+}
 
 async function fetchRecords(): Promise<void> {
   if (_fetched) return;
@@ -59,19 +63,23 @@ async function fetchRecords(): Promise<void> {
   try {
     const data = await apiFetch<ApiRecord[]>("/records?limit=1000");
     records.value = data.map(toLocal);
+    await fetchStats();
     _fetched = true;
   } finally {
     loading.value = false;
   }
 }
 
-/** 用户退出时重置状态，供 auth logout 调用 */
-export function resetRecords(): void {
-  records.value = [];
+export async function refreshRecords(): Promise<void> {
   _fetched = false;
+  await fetchRecords();
 }
 
-/* ── 统计计算（与原版逻辑一致） ── */
+export function resetRecords(): void {
+  records.value = [];
+  stats.value = null;
+  _fetched = false;
+}
 
 function countOnDate(date: string): number {
   return records.value.filter((r) => r.date === date).length;
@@ -118,7 +126,6 @@ export function countByMonth(n = 6): { label: string; count: number }[] {
   return result;
 }
 
-/** 最近 n 个自然年（含本年），从早到晚排列 */
 export function countByYear(n = 6): { year: number; label: string; count: number }[] {
   const result: { year: number; label: string; count: number }[] = [];
   const currentYear = new Date().getFullYear();
@@ -130,29 +137,26 @@ export function countByYear(n = 6): { year: number; label: string; count: number
   return result;
 }
 
-export const recentFrequency = computed(() => {
-  const days = countByDay(7);
-  const total = days.reduce((s, d) => s + Math.min(d.count, 1), 0);
-  return total / 7;
-});
-
-/* ── useRecords ── */
+export const recentFrequency = computed(
+  () => stats.value?.recent_frequency ?? 0,
+);
 
 export function useRecords() {
-  const { user } = useAuth();
+  const streakDaysNoRecord = computed(
+    () => stats.value?.streak_days_no_record ?? 0,
+  );
+  const sinceLastMs = computed(() => stats.value?.since_last_ms ?? null);
+  const todayCount = computed(
+    () => stats.value?.today_count ?? countOnDate(today()),
+  );
 
-  const streakDays = computed(() => {
-    const set = new Set(records.value.map((r) => r.date));
-    if (set.has(today())) return 0;
-    const joinDate = accountJoinDate(user.value?.created_at);
-    let count = 0;
-    let check = prevLocalDay(today());
-    while (check >= joinDate) {
-      if (set.has(check)) break;
-      count++;
-      check = prevLocalDay(check);
-    }
-    return count;
+  const sinceLastLabel = computed(() => {
+    const ms = sinceLastMs.value;
+    if (ms == null) return "还没有记录，点下面开始";
+    const h = Math.floor(ms / 3_600_000);
+    const d = Math.floor(h / 24);
+    const rh = h % 24;
+    return `上次翻车至今 ${d} 天 ${rh} 小时`;
   });
 
   async function addRecord(): Promise<void> {
@@ -162,9 +166,9 @@ export function useRecords() {
       body: { timestamp: now.toISOString(), note: "" },
     });
     records.value = [toLocal(data), ...records.value];
+    await fetchStats();
   }
 
-  /** 为指定上海日历日新增一条鹿记录（补卡「鹿了」用） */
   async function addRecordForDate(localDate: string): Promise<void> {
     const timestamp = `${localDate}T12:00:00+08:00`;
     const data = await apiFetch<ApiRecord>("/records", {
@@ -172,17 +176,18 @@ export function useRecords() {
       body: { timestamp, note: "" },
     });
     records.value = [toLocal(data), ...records.value];
+    await fetchStats();
   }
 
   async function removeRecord(id: string): Promise<void> {
     await apiFetch<null>(`/records/${id}`, { method: "DELETE" });
     records.value = records.value.filter((r) => r.id !== id);
+    await fetchStats();
   }
 
   async function removeLatest(): Promise<void> {
     if (records.value.length === 0) return;
-    const latest = records.value[0];
-    await removeRecord(latest.id);
+    await removeRecord(records.value[0].id);
   }
 
   async function updateNote(id: string, note: string): Promise<void> {
@@ -193,18 +198,19 @@ export function useRecords() {
     records.value = records.value.map((r) => (r.id === id ? { ...r, note } : r));
   }
 
-  const todayCount = computed(() => countOnDate(today()));
-
   return {
     records,
     loading,
     fetchRecords,
+    refreshRecords,
     addRecord,
     addRecordForDate,
     removeRecord,
     removeLatest,
     updateNote,
-    streakDays,
+    streakDaysNoRecord,
+    sinceLastMs,
+    sinceLastLabel,
     todayCount,
     recentFrequency,
     countByDay,

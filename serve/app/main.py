@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import get_settings
 from .core.database import connect_db, close_db, get_db
-from .routers import auth, users, records, check_ins, rankings, social_posts, teams
+from .routers import auth, users, records, rankings, social_posts, teams
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,7 +21,7 @@ async def _ensure_indexes() -> None:
     await db["users"].create_index("username", unique=True)
     await db["records"].create_index([("user_id", 1), ("date", 1)])
     await db["records"].create_index([("user_id", 1), ("timestamp", -1)])
-    await db["check_ins"].create_index([("user_id", 1), ("local_date", 1)], unique=True)
+    await db["records"].create_index([("user_id", 1), ("habit_type", 1), ("date", 1)])
     await db["teams"].create_index("owner_user_id")
     await db["team_members"].create_index([("team_id", 1), ("user_id", 1)], unique=True)
     await db["team_members"].create_index("user_id", unique=True)
@@ -40,7 +40,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
-        description="鹿了么 —— 男性健康自我管理工具后端 API",
+        description="瘾了吗 —— 内部健康管理平台 API",
         docs_url="/docs",
         redoc_url="/redoc",
         lifespan=lifespan,
@@ -57,7 +57,6 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(users.router, prefix="/api/v1")
     app.include_router(records.router, prefix="/api/v1")
-    app.include_router(check_ins.router, prefix="/api/v1")
     app.include_router(rankings.router, prefix="/api/v1")
     app.include_router(social_posts.router, prefix="/api/v1")
     app.include_router(teams.router, prefix="/api/v1")

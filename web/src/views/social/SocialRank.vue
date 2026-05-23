@@ -23,8 +23,8 @@ const periodOptions = [
 ] as const;
 
 const metricOptions = [
-  { value: "rate", label: "鹿率" },
-  { value: "count", label: "鹿数目" },
+  { value: "rate", label: "出动率" },
+  { value: "count", label: "瘾次" },
 ] as const;
 
 interface RankRow {
@@ -87,7 +87,7 @@ async function renderChart(res: RankingResponse) {
     metric.value === "rate" ? Math.round(r.value * 10000) / 100 : r.value,
   );
 
-  const yName = metric.value === "rate" ? "鹿率(%)" : "鹿次数";
+  const yName = metric.value === "rate" ? "出动率(%)" : "瘾次";
 
   chart.setOption(
     {
@@ -115,7 +115,7 @@ async function renderChart(res: RankingResponse) {
       },
       series: [
         {
-          name: metric.value === "rate" ? "鹿率" : "次数",
+          name: metric.value === "rate" ? "出动率" : "瘾次",
           type: "bar",
           data: vals,
           barMaxWidth: 28,

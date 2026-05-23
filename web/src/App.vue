@@ -18,7 +18,7 @@ const pageTitle = computed(() => {
   const t = route.meta.title;
   if (typeof t === "string" && t) return t;
   if (route.path.startsWith("/social")) return "社交";
-  return "鹿了么";
+  return "瘾了吗";
 });
 
 function handleLogout() {

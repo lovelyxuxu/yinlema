@@ -116,7 +116,7 @@ async function submit() {
     <div class="auth-card">
       <!-- Logo / 标题 -->
       <div class="brand">
-        <h1 class="brand-name">鹿了么</h1>
+        <h1 class="brand-name">瘾了吗</h1>
         <p class="brand-sub">男性健康自我管理工具</p>
       </div>
 

@@ -8,7 +8,6 @@ export interface IdentityRole {
   id: IdentityRoleId;
   label: string;
   emoji: string;
-  /** 随机到「鹿」的概率，0–1 */
   luProbability: number;
   description: string;
   flavor: string;
@@ -17,38 +16,37 @@ export interface IdentityRole {
 const ROLES: IdentityRole[] = [
   {
     id: "balanced",
-    label: "平常心",
-    emoji: "😐",
+    label: "表面清纯",
+    emoji: "🙂",
     luProbability: 0.5,
     description: "一半一半，交给命运。",
-    flavor: "不执着于结果，顺其自然，今天怎样都好。",
+    flavor: "看起来人畜无害，实际上随缘手滑。",
   },
   {
     id: "sigma",
-    label: "西格玛男人",
-    emoji: "😎",
+    label: "戒断菩萨（假的）",
+    emoji: "🪷",
     luProbability: 0.1,
-    description: "自律拉满，几乎不鹿。",
-    flavor: "真·西格玛只专注于自身的成长。",
+    description: "嘴上戒断，心里随缘。",
+    flavor: "瘾运极低，但也不是没有。",
   },
   {
     id: "chaos",
-    label: "混沌乐子人",
-    emoji: "🤪",
+    label: "深夜 emo 选手",
+    emoji: "🌙",
     luProbability: 0.85,
-    description: "世界很大，先鹿为敬。",
-    flavor: "规则是什么？不存在的。今日份快乐必须有。",
+    description: "夜晚加成，懂的都懂。",
+    flavor: "今日手气检定容易「手痒」。",
   },
 ];
 
-const STORAGE_KEY = "lulemo:identity-role";
+const STORAGE_KEY = "yinlema:identity-role";
 
 const stored = localStorage.getItem(STORAGE_KEY) as IdentityRoleId | null;
 const storedValid = stored && ROLES.some((r) => r.id === stored);
 
 const activeId = ref<IdentityRoleId>(storedValid ? stored! : "balanced");
 
-/** 登录后用服务端角色初始化（不触发 API 同步） */
 export function initIdentityFromServer(role: IdentityRoleId): void {
   activeId.value = role;
   localStorage.setItem(STORAGE_KEY, role);
@@ -72,7 +70,7 @@ export function useIdentity() {
           body: { identity_role: id },
         });
       } catch {
-        // 静默失败：本地已更新，下次登录时服务端会以本地为准
+        /* 本地已更新 */
       }
     }
   }

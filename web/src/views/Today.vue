@@ -13,7 +13,7 @@ const busy = ref(false);
 const followMessage = ref("");
 const synced = ref(false);
 
-const LS_VERDICT = "lulemo:today:verdict";
+const LS_VERDICT = "yinlema:today:verdict";
 
 onMounted(() => {
   const v = localStorage.getItem(LS_VERDICT);
@@ -32,7 +32,7 @@ watch(verdict, (v) => {
 const verdictConfig = computed(() => {
   if (verdict.value === "lu") {
     return {
-      label: "鹿",
+      label: "手痒",
       color: "var(--danger)",
       glow: "rgba(248, 113, 113, 0.25)",
       gradFrom: "#f87171",
@@ -41,7 +41,7 @@ const verdictConfig = computed(() => {
   }
   if (verdict.value === "not") {
     return {
-      label: "不鹿",
+      label: "忍住",
       color: "var(--accent-a)",
       glow: "rgba(34, 197, 94, 0.25)",
       gradFrom: "#22c55e",
@@ -117,15 +117,15 @@ function clearVerdict() {
   <div class="page">
     <p class="page-intro lead">
       当前身份：<strong class="active-label">{{ activeRole.label }}</strong>，
-      鹿的概率约为 <strong>{{ Math.round(activeRole.luProbability * 100) }}%</strong>。
-      每日打卡与补卡请在「鹿了么」页完成。
+      瘾运约为 <strong>{{ Math.round(activeRole.luProbability * 100) }}%</strong>。
+      真实记录请在「瘾了吗」页点「又瘾了」。
     </p>
 
     <div class="card">
       <!-- 顶部 badge -->
       <div class="badge">
         <span class="dot" aria-hidden="true" />
-        <span>随机决定今天鹿不鹿</span>
+        <span>今日手气检定</span>
       </div>
 
       <!-- 结果展示区 -->
@@ -158,9 +158,9 @@ function clearVerdict() {
               :disabled="syncing"
               @click="syncToRecord"
             >
-              {{ syncing ? "记录中…" : "记录到鹿了么" }}
+              {{ syncing ? "记录中…" : "记到瘾了吗" }}
             </button>
-            <span v-else class="synced-label">✓ 已记录到鹿了么</span>
+            <span v-else class="synced-label">✓ 已记到瘾了吗</span>
           </div>
         </transition>
       </section>
@@ -174,7 +174,7 @@ function clearVerdict() {
           @click="roll"
         >
           <span v-if="busy" class="spinner" aria-hidden="true" />
-          {{ busy ? "命运转动中…" : verdict === "none" ? "开始今日鹿么" : "重新抽取" }}
+          {{ busy ? "命运转动中…" : verdict === "none" ? "开始检定" : "重新抽取" }}
         </button>
         <button
           v-if="verdict !== 'none'"

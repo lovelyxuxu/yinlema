@@ -4,9 +4,9 @@ import { RouterLink, useRoute } from "vue-router";
 const route = useRoute();
 
 const items = [
-  { to: "/", label: "鹿了么", exact: true },
-  { to: "/today", label: "今日鹿么" },
-  { to: "/identity", label: "选择身份" },
+  { to: "/", label: "瘾了吗", exact: true },
+  { to: "/today", label: "今日检定" },
+  { to: "/identity", label: "人设" },
   { to: "/social/rank", label: "社交" },
 ];
 

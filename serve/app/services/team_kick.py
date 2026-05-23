@@ -1,4 +1,4 @@
-"""根据自然月缺席打卡阈值，将用户踢出小队。"""
+"""根据自然月无记录天数阈值，将用户踢出小队。"""
 
 from __future__ import annotations
 
@@ -6,10 +6,11 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from ..core.dates_cn import (
-    missed_checkins_calendar_month_naive_shanghai,
+    missed_record_days_calendar_month_naive_shanghai,
     today_local_str,
     parse_local_date,
 )
+from ..models.habit import DEFAULT_HABIT
 
 
 async def run_auto_kicks_for_user(db: AsyncIOMotorDatabase, user_id: str) -> None:
@@ -24,12 +25,15 @@ async def run_auto_kicks_for_user(db: AsyncIOMotorDatabase, user_id: str) -> Non
     if not memberships:
         return
 
-    cis = (
-        await db["check_ins"]
-        .find({"user_id": user_id}, {"local_date": 1})
+    recs = (
+        await db["records"]
+        .find(
+            {"user_id": user_id, "habit_type": DEFAULT_HABIT},
+            {"date": 1},
+        )
         .to_list(length=366 * 5)
     )
-    ci_dates = frozenset(d["local_date"] for d in cis)
+    record_dates = frozenset(d["date"] for d in recs)
 
     for m in memberships:
         team_oid = ObjectId(str(m["team_id"]))
@@ -39,9 +43,8 @@ async def run_auto_kicks_for_user(db: AsyncIOMotorDatabase, user_id: str) -> Non
         threshold = team_doc.get("auto_kick_miss_gt", 20)
 
         jd = parse_local_date(m["joined_local_date"])
-        missed = missed_checkins_calendar_month_naive_shanghai(jd, today_d, ci_dates)
-        # 严格大于阈值才踢（missed > threshold）
+        missed = missed_record_days_calendar_month_naive_shanghai(
+            jd, today_d, record_dates
+        )
         if missed > threshold and threshold >= 0:
-            await db["team_members"].delete_one(
-                {"_id": m["_id"]},
-            )
+            await db["team_members"].delete_one({"_id": m["_id"]})

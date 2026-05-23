@@ -1,6 +1,6 @@
 const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000/api/v1";
 
-const TOKEN_KEY = "lulemo:token";
+const TOKEN_KEY = "yinlema:token";
 
 export class ApiError extends Error {
   constructor(

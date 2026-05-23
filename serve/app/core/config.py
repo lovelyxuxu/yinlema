@@ -4,13 +4,13 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # 应用基础配置
-    APP_NAME: str = "鹿了么 API"
+    APP_NAME: str = "瘾了吗 API"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
 
     # MongoDB 配置
     MONGODB_URL: str = "mongodb://localhost:27020"
-    MONGODB_DB: str = "lulemo"
+    MONGODB_DB: str = "yinlema"
 
     # JWT 配置
     SECRET_KEY: str = "change-this-secret-key-in-production"

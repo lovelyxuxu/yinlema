@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRecords, countByDay, countByWeek, countByMonth, countByYear } from "../stores/records";
-import { checkInDaysMap, loadRecentCheckIns } from "../stores/checkIns";
-import TodayCheckIn from "../components/TodayCheckIn.vue";
 
 const {
-  records, removeRecord, updateNote,
-  fetchRecords, loading, streakDays, todayCount, recentFrequency,
+  records, removeRecord, updateNote, addRecord, addRecordForDate,
+  fetchRecords, loading, streakDaysNoRecord, sinceLastLabel, todayCount, recentFrequency,
 } = useRecords();
+
+const backfillOpen = ref(false);
+const backfillDate = ref("");
+const adding = ref(false);
 /* ── Tab ── */
 type Tab = "day" | "week" | "month" | "year";
 const activeTab = ref<Tab>("day");
@@ -23,19 +25,8 @@ function setChartTab(id: Tab) {
   activeTab.value = id;
 }
 
-function onDeerDone() {
-  fetchRecords().catch(() => {});
-}
-
-function onBackfillDone() {
-  loadRecentCheckIns().catch(() => {});
-}
-
-/** 图表计数：有行为记录用条数；仅补卡「鹿了」且无记录时计 1 */
 function chartCountOnDate(date: string): number {
-  const recordCount = records.value.filter((r) => r.date === date).length;
-  if (recordCount > 0) return recordCount;
-  return checkInDaysMap.value[date] === "deer" ? 1 : 0;
+  return records.value.filter((r) => r.date === date).length;
 }
 
 function chartCountInRange(start: string, end: string): number {
@@ -54,9 +45,6 @@ function chartCountInMonth(prefix: string): number {
   for (const r of records.value) {
     if (r.date.startsWith(prefix)) dates.add(r.date);
   }
-  for (const [date, st] of Object.entries(checkInDaysMap.value)) {
-    if (date.startsWith(prefix) && st === "deer") dates.add(date);
-  }
   let total = 0;
   for (const date of dates) total += chartCountOnDate(date);
   return total;
@@ -68,9 +56,6 @@ function chartCountInYear(year: number): number {
   for (const r of records.value) {
     if (r.date.startsWith(prefix)) dates.add(r.date);
   }
-  for (const [date, st] of Object.entries(checkInDaysMap.value)) {
-    if (date.startsWith(prefix) && st === "deer") dates.add(date);
-  }
   let total = 0;
   for (const date of dates) total += chartCountOnDate(date);
   return total;
@@ -78,19 +63,47 @@ function chartCountInYear(year: number): number {
 
 /* ── 统计横幅 ── */
 const streakBanner = computed(() => {
-  const n = streakDays.value;
+  const n = streakDaysNoRecord.value;
   if (n === 0 && todayCount.value > 0) {
-    return { title: "今天已经鹿了", sub: "今天好好照顾一下自己，给身体留点时间恢复。", color: "var(--danger)" };
+    return {
+      title: `今天手滑了 ${todayCount.value} 回`,
+      sub: "诚实记录就很棒，下次再说。",
+      color: "var(--accent-warm)",
+    };
   }
   if (n === 0) {
-    return { title: "0 天没鹿", sub: "今天还没有记录，从这一刻开始管理自己的节律吧。", color: "var(--accent-b)" };
+    return { title: "今天还没瘾", sub: "想记就点「又瘾了」。", color: "var(--accent-b)" };
   }
-  if (n < 3)  return { title: `${n} 天没鹿`, sub: "好的开始！每一天都是一次选择，继续。", color: "var(--accent-b)" };
-  if (n < 7)  return { title: `${n} 天没鹿`, sub: "已经坚持好几天了，精力是不是更充沛了？", color: "var(--accent-b)" };
-  if (n < 14) return { title: `整整 ${n} 天！`, sub: "一周以上，节律在慢慢建立。你比昨天更强。", color: "var(--accent-a)" };
-  if (n < 30) return { title: `${n} 天！真的厉害`, sub: "半个月了，这已经是一种习惯的力量了。", color: "var(--accent-a)" };
-  return { title: `${n} 天！西格玛境界`, sub: "一个月以上，你已经踏入了真正自律的领域。🔱", color: "#a78bfa" };
+  if (n < 7) {
+    return { title: `已经 ${n} 天没瘾了`, sub: sinceLastLabel.value, color: "var(--accent-a)" };
+  }
+  return {
+    title: `已经 ${n} 天没瘾了`,
+    sub: "刷新个人最长空窗期，可以的。",
+    color: "var(--accent-a)",
+  };
 });
+
+async function handleAddRecord() {
+  if (adding.value) return;
+  adding.value = true;
+  try {
+    await addRecord();
+  } finally {
+    adding.value = false;
+  }
+}
+
+async function handleBackfill() {
+  if (!backfillDate.value || adding.value) return;
+  adding.value = true;
+  try {
+    await addRecordForDate(backfillDate.value);
+    backfillOpen.value = false;
+  } finally {
+    adding.value = false;
+  }
+}
 
 const recommendation = computed(() => {
   const freq = recentFrequency.value;
@@ -225,7 +238,6 @@ const trendOverlay = computed(() => {
 
 onMounted(() => {
   fetchRecords().catch(() => {});
-  loadRecentCheckIns().catch(() => {});
 });
 
 const filterLabel = computed(() => {
@@ -252,13 +264,6 @@ const filteredRecords = computed(() => {
   if (activeTab.value === "month") return records.value.filter((r) => r.date.startsWith(key));
   if (activeTab.value === "year") return records.value.filter((r) => r.date.startsWith(`${key}-`));
   return [];
-});
-
-/** 选中的是「按天」中仅有打卡但无行为记录的日期 */
-const selectedDayCheckInOnly = computed(() => {
-  if (!selectedBarKey.value || activeTab.value !== "day") return false;
-  if (filteredRecords.value.length > 0) return false;
-  return checkInDaysMap.value[selectedBarKey.value] === "deer";
 });
 
 /* ── 记录展开 / 备注编辑 ── */
@@ -325,13 +330,13 @@ function formatTime(ts: number): string {
     <!-- Streak 横幅 -->
     <div class="streak-banner" :style="{ '--accent-color': streakBanner.color }">
       <div class="streak-inner">
-        <div class="streak-days">{{ streakDays }}</div>
+        <div class="streak-days">{{ streakDaysNoRecord }}</div>
         <div class="streak-text">
           <p class="streak-title">{{ streakBanner.title }}</p>
           <p class="streak-sub">{{ streakBanner.sub }}</p>
         </div>
       </div>
-      <div class="streak-label">连续天数</div>
+      <div class="streak-label">没瘾天数</div>
     </div>
 
     <!-- 今日推荐 + 记录按钮 -->
@@ -341,7 +346,16 @@ function formatTime(ts: number): string {
         <p class="recommend-label">{{ recommendation.label }}</p>
         <p class="recommend-hint">{{ recommendation.hint }}</p>
       </div>
-      <TodayCheckIn @deer-done="onDeerDone" @backfill-done="onBackfillDone" />
+      <div class="record-actions">
+        <button type="button" class="btn-primary record-btn" :disabled="adding" @click="handleAddRecord">
+          {{ adding ? "记录中…" : "又瘾了" }}
+        </button>
+        <button type="button" class="link-btn" @click="backfillOpen = !backfillOpen">补记</button>
+        <div v-if="backfillOpen" class="backfill-row">
+          <input v-model="backfillDate" type="date" class="backfill-input" />
+          <button type="button" class="btn-primary" :disabled="adding" @click="handleBackfill">确定</button>
+        </div>
+      </div>
     </div>
 
     <!-- 统计图表 -->
@@ -412,9 +426,8 @@ function formatTime(ts: number): string {
       </div>
 
       <div v-if="filteredRecords.length === 0" class="empty-hint">
-        <template v-if="!selectedBarKey">还没有任何记录，在右侧打卡「今天鹿了」可同时记一条行为。</template>
-        <template v-else-if="selectedDayCheckInOnly">该日期已打卡「鹿了」，但未同步行为记录。</template>
-        <template v-else>该时间段暂无行为记录。</template>
+        <template v-if="!selectedBarKey">还没有任何记录，点「又瘾了」记一笔。</template>
+        <template v-else>该时间段暂无记录。</template>
       </div>
 
       <ul v-else class="record-list">
@@ -903,6 +916,38 @@ function formatTime(ts: number): string {
   transition: color 0.15s;
 }
 .del-record-btn:hover { color: var(--danger); }
+
+.record-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  min-width: 120px;
+}
+.record-btn {
+  padding: 12px 16px;
+  font-weight: 600;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 4px;
+}
+.backfill-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.backfill-input {
+  flex: 1;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  background: var(--card);
+}
 
 /* 展开动画 */
 .detail-slide-enter-active {

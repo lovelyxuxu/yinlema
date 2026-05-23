@@ -2,6 +2,7 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import { router } from "./router";
 import "./styles/global.css";
+import "./styles/identity-lust.css";
 
 /** 禁止浏览器对输入框弹出历史/自动填充建议 */
 function disableBrowserAutocomplete(root: ParentNode = document.body) {

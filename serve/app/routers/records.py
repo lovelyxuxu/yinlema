@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from ..core.database import get_db
-from ..core.dates_cn import datetime_to_local_date, parse_local_date, today_local_str
+from ..core.dates_cn import (
+    datetime_to_local_date,
+    get_period_bounds,
+    parse_local_date,
+    today_local_str,
+)
 from ..deps import get_current_user
 from ..models.habit import DEFAULT_HABIT, HabitType
 from ..models.record import RecordInDB
@@ -24,6 +29,7 @@ from ..services.stats import (
     compute_since_last_ms,
     compute_streak_days_no_record,
 )
+from ..services.titles import compute_week_metrics, resolve_title
 
 router = APIRouter(prefix="/records", tags=["行为记录"])
 
@@ -181,6 +187,14 @@ async def get_stats(
     )
 
     today_count = date_count.get(today_str, 0)
+    anchor = parse_local_date(today_str)
+    week_start, week_end = get_period_bounds(anchor, "week")
+    week_total, week_active_days = compute_week_metrics(
+        date_count, week_start, week_end
+    )
+    title = resolve_title(
+        week_total=week_total, week_active_days=week_active_days
+    )
     date_set = set(date_count.keys())
 
     recent_days = [
@@ -220,6 +234,11 @@ async def get_stats(
         today_count=today_count,
         longest_streak_no_record=longest,
         recent_frequency=round(recent_frequency, 4),
+        week_total=week_total,
+        week_active_days=week_active_days,
+        title_id=title.title_id,
+        title_label=title.title_label,
+        title_hint=title.title_hint,
         by_day=by_day,
         by_week=by_week,
         by_month=by_month,

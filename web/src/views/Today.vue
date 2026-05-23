@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { useIdentity } from "../stores/identity";
+import {
+  useIdentity,
+  pickRandomFixedRole,
+  displayLuPercent,
+  type IdentityRole,
+} from "../stores/identity";
 import { useRecords } from "../stores/records";
 
 type Verdict = "none" | "lu" | "not";
@@ -12,6 +17,7 @@ const verdict = ref<Verdict>("none");
 const busy = ref(false);
 const followMessage = ref("");
 const synced = ref(false);
+const lastDicePick = ref<IdentityRole | null>(null);
 
 const LS_VERDICT = "yinlema:today:verdict";
 
@@ -84,7 +90,14 @@ function roll() {
   if (busy.value) return;
   busy.value = true;
   synced.value = false;
-  const p = activeRole.value.luProbability;
+
+  let p = activeRole.value.luProbability ?? 0.5;
+  if (activeRole.value.id === "random") {
+    const picked = pickRandomFixedRole();
+    p = picked.luProbability ?? 0.5;
+    lastDicePick.value = picked;
+  }
+
   window.setTimeout(() => {
     const next: Exclude<Verdict, "none"> = Math.random() < p ? "lu" : "not";
     verdict.value = next;
@@ -110,6 +123,7 @@ function clearVerdict() {
   verdict.value = "none";
   followMessage.value = "";
   synced.value = false;
+  lastDicePick.value = null;
 }
 </script>
 
@@ -117,7 +131,12 @@ function clearVerdict() {
   <div class="page">
     <p class="page-intro lead">
       当前身份：<strong class="active-label">{{ activeRole.label }}</strong>，
-      瘾运约为 <strong>{{ Math.round(activeRole.luProbability * 100) }}%</strong>。
+      <template v-if="activeRole.id === 'random'">
+        瘾运 <strong>??%</strong>（每次检定随机抽一档）。
+      </template>
+      <template v-else>
+        瘾运约为 <strong>{{ displayLuPercent(activeRole) }}</strong>。
+      </template>
       真实记录请在「瘾了吗」页点「又瘾了」。
     </p>
 
@@ -127,6 +146,16 @@ function clearVerdict() {
         <span class="dot" aria-hidden="true" />
         <span>今日手气检定</span>
       </div>
+
+      <p
+        v-if="activeRole.id === 'random' && lastDicePick"
+        class="dice-inline"
+        role="status"
+      >
+        <span class="dice-inline-emoji" aria-hidden="true">{{ lastDicePick.emoji }}</span>
+        本次骰到：<strong>{{ lastDicePick.label }}</strong>
+        · 瘾运 {{ displayLuPercent(lastDicePick) }}
+      </p>
 
       <!-- 结果展示区 -->
       <section
@@ -426,6 +455,27 @@ function clearVerdict() {
   font-size: 11px;
   line-height: 1.55;
   text-align: center;
+}
+
+.dice-inline {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(236, 72, 153, 0.08);
+  border: 1px dashed rgba(236, 72, 153, 0.28);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.dice-inline strong {
+  color: var(--accent-a);
+  font-weight: 700;
+}
+
+.dice-inline-emoji {
+  margin-right: 4px;
 }
 
 /* Transition */

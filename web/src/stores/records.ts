@@ -24,6 +24,11 @@ interface ApiStats {
   today_count: number;
   longest_streak_no_record: number;
   recent_frequency: number;
+  week_total: number;
+  week_active_days: number;
+  title_id: string;
+  title_label: string;
+  title_hint: string;
   by_day: { date: string; count: number }[];
   by_week: { label: string; count: number }[];
   by_month: { label: string; count: number }[];
@@ -149,6 +154,10 @@ export function useRecords() {
   const todayCount = computed(
     () => stats.value?.today_count ?? countOnDate(today()),
   );
+  const weekTotal = computed(() => stats.value?.week_total ?? 0);
+  const weekActiveDays = computed(() => stats.value?.week_active_days ?? 0);
+  const titleLabel = computed(() => stats.value?.title_label ?? "清新寡欲");
+  const titleHint = computed(() => stats.value?.title_hint ?? "本周还没动笔");
 
   const sinceLastLabel = computed(() => {
     const ms = sinceLastMs.value;
@@ -212,6 +221,10 @@ export function useRecords() {
     sinceLastMs,
     sinceLastLabel,
     todayCount,
+    weekTotal,
+    weekActiveDays,
+    titleLabel,
+    titleHint,
     recentFrequency,
     countByDay,
     countByWeek,

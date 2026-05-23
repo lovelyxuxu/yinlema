@@ -20,7 +20,7 @@ router = APIRouter(prefix="/rankings", tags=["排行"])
 async def get_rankings(
     scope: Literal["province", "city", "district", "team"] = Query(...),
     period: Literal["day", "week", "month", "year"] = Query(...),
-    metric: Literal["rate", "count"] = Query(..., description="鹿率(rate)或鹿数目(count)"),
+    metric: Literal["rate", "count"] = Query(..., description="出动率(rate)或瘾次(count)"),
     anchor: str | None = Query(
         None,
         description="锚定日历日 YYYY-MM-DD（上海）；默认今天",

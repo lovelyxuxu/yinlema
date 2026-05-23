@@ -5,7 +5,17 @@ from pydantic import BaseModel, Field, ValidationError
 
 from .region import UserRegion
 
-IdentityRoleId = Literal["balanced", "sigma", "chaos"]
+IdentityRoleId = Literal[
+    "balanced",
+    "sigma",
+    "chaos",
+    "pure",
+    "max",
+    "moka",
+    "fan",
+    "cat",
+    "random",
+]
 
 
 class UserInDB(BaseModel):

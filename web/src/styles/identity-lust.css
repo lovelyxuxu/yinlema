@@ -1,0 +1,199 @@
+@keyframes lust-flow {
+  from {
+    background-position: 0 50%;
+  }
+  to {
+    background-position: 200px 50%;
+  }
+}
+
+@keyframes lust-fog-drift {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 0.28;
+    transform: translateX(8px);
+  }
+}
+
+@keyframes tail-sway {
+  0%,
+  100% {
+    transform: rotate(-6deg) scale(1);
+  }
+  50% {
+    transform: rotate(4deg) scale(1.05);
+  }
+}
+
+@keyframes liquid-rise {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes hue-shift {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    filter: hue-rotate(25deg);
+  }
+}
+
+@keyframes random-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.role-lust-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.lust-river {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background-repeat: repeat;
+  background-size: 80px 40px;
+  animation: lust-flow 12s linear infinite;
+}
+
+.lust-calm .lust-river {
+  display: none;
+}
+
+.lust-calm .role-lust-bg {
+  background: linear-gradient(135deg, #f0f9ff, #fdf2f8);
+}
+
+.lust-low .lust-river {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 20px,
+    rgba(236, 72, 153, 0.12) 20px 40px
+  );
+  animation-duration: 14s;
+}
+
+.lust-mid .lust-river {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 12px,
+    rgba(236, 72, 153, 0.18) 12px 24px
+  );
+}
+
+.lust-high .lust-river {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 10px,
+    rgba(192, 132, 252, 0.22) 10px 20px
+  );
+  animation-duration: 12s;
+}
+
+.lust-max .lust-river {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 8px,
+    rgba(236, 72, 153, 0.28) 8px 16px
+  );
+  animation-duration: 8s;
+}
+
+.lust-random .lust-river {
+  width: 100% !important;
+  animation:
+    lust-flow 10s linear infinite,
+    hue-shift 6s ease-in-out infinite alternate;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(236, 72, 153, 0.2) 0 16px,
+    rgba(192, 132, 252, 0.25) 16px 32px
+  );
+}
+
+.lust-fog {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 30% 40%,
+    rgba(251, 207, 232, 0.35),
+    transparent 70%
+  );
+  animation: lust-fog-drift 8s ease-in-out infinite;
+}
+
+.lust-low .lust-fog,
+.lust-calm .lust-fog {
+  display: none;
+}
+
+.lust-tail {
+  position: absolute;
+  right: -4px;
+  bottom: 8px;
+  width: 56px;
+  height: 72px;
+  background: linear-gradient(160deg, #c084fc 0%, #ec4899 55%, transparent 100%);
+  border-radius: 60% 40% 0 50%;
+  opacity: 0.45;
+  animation: tail-sway 4s ease-in-out infinite;
+}
+
+.lust-low .lust-tail,
+.lust-mid .lust-tail,
+.lust-calm .lust-tail {
+  display: none;
+}
+
+.lust-liquid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28%;
+  background: linear-gradient(180deg, transparent, rgba(236, 72, 153, 0.35));
+  border-radius: 50% 50% 0 0 / 20% 20% 0 0;
+  animation: liquid-rise 3s ease-in-out infinite;
+}
+
+.lust-low .lust-liquid,
+.lust-mid .lust-liquid,
+.lust-high .lust-liquid,
+.lust-calm .lust-liquid {
+  display: none;
+}
+
+.lust-random .lust-tail,
+.lust-random .lust-liquid {
+  animation: random-pulse 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lust-river,
+  .lust-fog,
+  .lust-tail,
+  .lust-liquid {
+    animation: none !important;
+  }
+}

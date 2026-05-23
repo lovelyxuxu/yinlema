@@ -1,7 +1,16 @@
 import { computed, ref } from "vue";
 import { apiFetch, ApiError, getStoredToken, saveToken, removeToken } from "../api/client";
 
-export type IdentityRoleId = "balanced" | "sigma" | "chaos";
+export type IdentityRoleId =
+  | "balanced"
+  | "sigma"
+  | "chaos"
+  | "pure"
+  | "max"
+  | "moka"
+  | "fan"
+  | "cat"
+  | "random";
 
 /** 注册时提交到后端的行政区划 */
 export interface UserRegionPayload {

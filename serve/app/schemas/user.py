@@ -5,7 +5,17 @@ from pydantic import BaseModel, Field
 
 from ..models.region import UserRegion
 
-IdentityRoleId = Literal["balanced", "sigma", "chaos"]
+IdentityRoleId = Literal[
+    "balanced",
+    "sigma",
+    "chaos",
+    "pure",
+    "max",
+    "moka",
+    "fan",
+    "cat",
+    "random",
+]
 
 
 class UserResponse(BaseModel):

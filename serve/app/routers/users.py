@@ -19,8 +19,8 @@ router = APIRouter(prefix="/users", tags=["用户"])
 @router.put(
     "/me/identity",
     response_model=UserResponse,
-    summary="更新身份角色",
-    description="切换当前用户的「今日鹿么」随机概率角色（平常心 / 西格玛男人 / 混沌乐子人）",
+    summary="更新人设",
+    description="切换「今日检定」瘾运角色（表面清纯/戒断菩萨（假的）/深夜 emo/清心道姑/瘾运拉满/摸鱼少女/狂热信徒/懒猫趴趴/天选骰子）",
 )
 async def update_identity(
     body: UpdateIdentityRequest,

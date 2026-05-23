@@ -4,7 +4,8 @@ import { useRecords, countByDay, countByWeek, countByMonth, countByYear } from "
 
 const {
   records, removeRecord, updateNote, addRecord, addRecordForDate,
-  fetchRecords, loading, streakDaysNoRecord, sinceLastLabel, todayCount, recentFrequency,
+  fetchRecords, loading, sinceLastLabel, todayCount, weekTotal,
+  titleLabel, titleHint,
 } = useRecords();
 
 const backfillOpen = ref(false);
@@ -61,29 +62,6 @@ function chartCountInYear(year: number): number {
   return total;
 }
 
-/* ── 统计横幅 ── */
-const streakBanner = computed(() => {
-  const n = streakDaysNoRecord.value;
-  if (n === 0 && todayCount.value > 0) {
-    return {
-      title: `今天手滑了 ${todayCount.value} 回`,
-      sub: "诚实记录就很棒，下次再说。",
-      color: "var(--accent-warm)",
-    };
-  }
-  if (n === 0) {
-    return { title: "今天还没瘾", sub: "想记就点「又瘾了」。", color: "var(--accent-b)" };
-  }
-  if (n < 7) {
-    return { title: `已经 ${n} 天没瘾了`, sub: sinceLastLabel.value, color: "var(--accent-a)" };
-  }
-  return {
-    title: `已经 ${n} 天没瘾了`,
-    sub: "刷新个人最长空窗期，可以的。",
-    color: "var(--accent-a)",
-  };
-});
-
 async function handleAddRecord() {
   if (adding.value) return;
   adding.value = true;
@@ -104,14 +82,6 @@ async function handleBackfill() {
     adding.value = false;
   }
 }
-
-const recommendation = computed(() => {
-  const freq = recentFrequency.value;
-  if (freq === 0) return { label: "完全休整", hint: "近一周没有记录，身体已在充分恢复中。" };
-  if (freq < 0.3) return { label: "适度建议", hint: "近一周频率较低，状态不错，继续保持。" };
-  if (freq < 0.6) return { label: "注意节律", hint: "近一周频率适中，今天可以考虑休息一下。" };
-  return { label: "今日建议休息", hint: "近一周频率偏高，身体需要缓冲，今天放一放吧。" };
-});
 
 /* ── 图表（含 filterKey）── */
 function ds(d: Date) { return d.toISOString().slice(0, 10); }
@@ -327,34 +297,34 @@ function formatTime(ts: number): string {
       <span class="loading-dot" /><span class="loading-dot" /><span class="loading-dot" />
     </div>
 
-    <!-- Streak 横幅 -->
-    <div class="streak-banner" :style="{ '--accent-color': streakBanner.color }">
-      <div class="streak-inner">
-        <div class="streak-days">{{ streakDaysNoRecord }}</div>
-        <div class="streak-text">
-          <p class="streak-title">{{ streakBanner.title }}</p>
-          <p class="streak-sub">{{ streakBanner.sub }}</p>
-        </div>
-      </div>
-      <div class="streak-label">没瘾天数</div>
-    </div>
+    <!-- 称号英雄区 -->
+    <section class="title-hero">
+      <p class="title-eyebrow">本周瘾运</p>
+      <h2 class="title-badge">{{ titleLabel }}</h2>
+      <p class="title-hint">{{ titleHint }}</p>
+    </section>
 
-    <!-- 今日推荐 + 记录按钮 -->
-    <div class="row-two">
-      <div class="recommend-card">
-        <p class="card-eyebrow">今日参考</p>
-        <p class="recommend-label">{{ recommendation.label }}</p>
-        <p class="recommend-hint">{{ recommendation.hint }}</p>
+    <!-- 主 CTA -->
+    <section class="cta-block">
+      <button type="button" class="btn-primary cta-main" :disabled="adding" @click="handleAddRecord">
+        {{ adding ? "记录中…" : "又瘾了" }}
+      </button>
+      <button type="button" class="link-btn" @click="backfillOpen = !backfillOpen">补记</button>
+      <div v-if="backfillOpen" class="backfill-row">
+        <input v-model="backfillDate" type="date" class="backfill-input" />
+        <button type="button" class="btn-primary btn-sm" :disabled="adding" @click="handleBackfill">确定</button>
       </div>
-      <div class="record-actions">
-        <button type="button" class="btn-primary record-btn" :disabled="adding" @click="handleAddRecord">
-          {{ adding ? "记录中…" : "又瘾了" }}
-        </button>
-        <button type="button" class="link-btn" @click="backfillOpen = !backfillOpen">补记</button>
-        <div v-if="backfillOpen" class="backfill-row">
-          <input v-model="backfillDate" type="date" class="backfill-input" />
-          <button type="button" class="btn-primary" :disabled="adding" @click="handleBackfill">确定</button>
-        </div>
+    </section>
+
+    <!-- 今日 / 本周 -->
+    <div class="stat-pair">
+      <div class="stat-cell">
+        <span class="stat-num">{{ todayCount }}</span>
+        <span class="stat-cap">今日</span>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-num">{{ weekTotal }}</span>
+        <span class="stat-cap">本周</span>
       </div>
     </div>
 
@@ -416,7 +386,11 @@ function formatTime(ts: number): string {
       </div>
     </div>
 
-    <!-- 记录列表 -->
+    <!-- 下滑区：次要指标 + 记录 -->
+    <section class="scroll-section">
+      <p class="scroll-hint">↓ 记录明细</p>
+      <p v-if="sinceLastLabel" class="since-last">{{ sinceLastLabel }}</p>
+
     <div class="record-list-card">
       <div class="record-list-header">
         <p class="card-eyebrow">记录</p>
@@ -495,6 +469,7 @@ function formatTime(ts: number): string {
         </li>
       </ul>
     </div>
+    </section>
 
   </div>
 </template>
@@ -507,7 +482,7 @@ function formatTime(ts: number): string {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 /* ── Loading ── */
@@ -533,35 +508,87 @@ function formatTime(ts: number): string {
   40% { transform: translateY(-8px); opacity: 1; }
 }
 
-/* ── Streak Banner ── */
-.streak-banner {
+/* ── Title hero ── */
+.title-hero {
+  border-radius: var(--radius-lg);
+  padding: 28px 20px 24px;
+  text-align: center;
+  background: linear-gradient(145deg, #fdf2f8, #fce7f3);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 12px 32px rgba(236, 72, 153, 0.14);
+}
+.title-eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.title-badge {
+  margin: 0 0 10px;
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, #db2777, #ec4899, #c084fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.title-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── CTA ── */
+.cta-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+.cta-main {
+  width: 100%;
+  padding: 18px;
+  font-size: 18px;
+  font-weight: 800;
+  border-radius: 18px;
+  letter-spacing: 0.04em;
+}
+.btn-sm {
+  padding: 10px 16px;
+  font-size: 14px;
+}
+
+/* ── Today / week stats ── */
+.stat-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.stat-cell {
   border-radius: var(--radius-lg);
   background: var(--card);
   border: 1px solid var(--card-border);
-  padding: 14px 16px 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-}
-.streak-inner { display: flex; align-items: center; gap: 14px; }
-.streak-days {
-  font-size: 52px;
-  font-weight: 900;
-  line-height: 1;
-  color: var(--accent-color, var(--accent-b));
-  min-width: 60px;
+  padding: 16px;
   text-align: center;
 }
-.streak-text { flex: 1; min-width: 0; }
-.streak-title { margin: 0 0 3px; font-size: 16px; font-weight: 700; }
-.streak-sub { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
-.streak-label { margin-top: 8px; font-size: 10px; color: var(--muted); opacity: 0.6; text-transform: uppercase; letter-spacing: 0.1em; }
-
-/* ── Two-column row ── */
-.row-two {
-  display: grid;
-  grid-template-columns: 1fr minmax(136px, 40%);
-  gap: 10px;
-  align-items: stretch;
+.stat-num {
+  display: block;
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent-a);
 }
+.stat-cap {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .card-eyebrow {
   margin: 0 0 5px;
   font-size: 11px;
@@ -569,18 +596,26 @@ function formatTime(ts: number): string {
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
-.recommend-card {
-  border-radius: var(--radius-lg);
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
+
+/* ── Scroll section ── */
+.scroll-section {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px dashed rgba(190, 24, 93, 0.2);
 }
-.recommend-label { margin: 0; font-size: 15px; font-weight: 700; color: var(--accent-a); }
-.recommend-hint { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.scroll-hint {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.75;
+}
+.since-last {
+  margin: 0 0 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
 
 /* ── Chart ── */
 .chart-card {
@@ -606,8 +641,8 @@ function formatTime(ts: number): string {
   transition: all 0.15s;
 }
 .tab-btn.active {
-  background: rgba(2,132,199,0.12);
-  border-color: rgba(2,132,199,0.40);
+  background: rgba(236, 72, 153, 0.12);
+  border-color: rgba(236, 72, 153, 0.35);
   color: var(--text);
 }
 
@@ -681,7 +716,7 @@ function formatTime(ts: number): string {
   user-select: none;
 }
 .chart-col:hover { background: rgba(0,0,0,0.04); }
-.chart-col.selected { background: rgba(2,132,199,0.08); }
+.chart-col.selected { background: rgba(236, 72, 153, 0.08); }
 
 .bar-count { font-size: 11px; color: var(--muted); height: 14px; line-height: 14px; }
 .bar-track {
@@ -711,7 +746,7 @@ function formatTime(ts: number): string {
   max-width: 100%;
   text-align: center;
 }
-.chart-col.selected .bar-label { color: var(--accent-b); }
+.chart-col.selected .bar-label { color: var(--accent-a); }
 
 
 /* ── Record List ── */
@@ -737,12 +772,12 @@ function formatTime(ts: number): string {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--accent-b);
-  background: rgba(2,132,199,0.08);
-  border: 1px solid rgba(2,132,199,0.28);
+  color: var(--accent-a);
+  background: rgba(236, 72, 153, 0.08);
+  border: 1px solid rgba(236, 72, 153, 0.28);
   transition: background 0.15s;
 }
-.filter-badge:hover { background: rgba(2,132,199,0.14); }
+.filter-badge:hover { background: rgba(236, 72, 153, 0.14); }
 .filter-close { opacity: 0.7; }
 
 .empty-hint {
@@ -917,17 +952,6 @@ function formatTime(ts: number): string {
 }
 .del-record-btn:hover { color: var(--danger); }
 
-.record-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: stretch;
-  min-width: 120px;
-}
-.record-btn {
-  padding: 12px 16px;
-  font-weight: 600;
-}
 .link-btn {
   background: none;
   border: none;

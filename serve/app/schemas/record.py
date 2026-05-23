@@ -46,6 +46,11 @@ class StatsResponse(BaseModel):
     today_count: int
     longest_streak_no_record: int = 0
     recent_frequency: float
+    week_total: int = 0
+    week_active_days: int = 0
+    title_id: str = "qingxin"
+    title_label: str = "清新寡欲"
+    title_hint: str = "本周还没动笔"
     by_day: list[DayStatItem]
     by_week: list[WeekStatItem]
     by_month: list[MonthStatItem]

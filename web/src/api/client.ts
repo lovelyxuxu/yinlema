@@ -48,7 +48,14 @@ export async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promis
     let detail = res.statusText;
     try {
       const err = await res.json();
-      if (err?.detail) detail = String(err.detail);
+      const d = err?.detail;
+      if (typeof d === "string") detail = d;
+      else if (Array.isArray(d)) {
+        detail = d
+          .map((x: { msg?: string }) => x?.msg)
+          .filter(Boolean)
+          .join("；") || "请求参数有误";
+      }
     } catch {
       // ignore parse error
     }

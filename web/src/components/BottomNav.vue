@@ -64,6 +64,7 @@ function isActive(path: string, exact?: boolean) {
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 100;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   padding: 8px 8px calc(8px + var(--safe-bottom));
